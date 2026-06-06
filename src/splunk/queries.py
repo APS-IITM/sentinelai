@@ -35,9 +35,8 @@ class SplunkQueries:
         | head {limit}
         """
 
-    # 🔥 IMPORTANT FOR DAY 4 (ANOMALY DETECTION READY)
     @staticmethod
-    def login_volume():
+    def login_trend():
         return """
         search index=_internal "login"
         | bin _time span=5m

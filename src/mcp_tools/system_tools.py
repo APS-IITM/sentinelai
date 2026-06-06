@@ -12,8 +12,16 @@ class SystemTools(BaseTool):
         query = SplunkQueries.search_logs(keyword, limit)
         return self.execute(query)
 
+    def get_auth_logs(self, limit=20):
+        query = SplunkQueries.get_auth_logs(limit)
+        return self.execute(query)
+
+    def get_error_logs(self, limit=20):
+        query = SplunkQueries.get_error_logs(limit)
+        return self.execute(query)
+
     def login_trend(self):
-        query = SplunkQueries.login_volume()
+        query = SplunkQueries.login_trend()
         return self.execute(query)
 
     def error_trend(self):

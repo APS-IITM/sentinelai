@@ -1,5 +1,5 @@
 from src.splunk.client import connect, run_search
-from src.utlis.formatter import normalize_response
+from src.utils.formatter import normalize_response
 
 
 class BaseTool:
