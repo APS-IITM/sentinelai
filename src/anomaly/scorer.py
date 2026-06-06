@@ -1,22 +1,23 @@
-class RiskScorer: 
+class RiskScorer:
+
     @staticmethod
-    def score_from_volume(count:int):
-        if count > 1000:
-            return 95
-        elif count > 500:
-            return 80
-        elif count > 200:
-            return 65
-        elif count > 100:
-            return 50
-        else:
-            return 20
-    def severity(score:int):
-        if score > 90:
-            return "Critical"
-        elif score > 70:
-            return "High"
-        elif score > 50:
-            return "Medium"
-        else:
-            return "Low"
+    def calculate(volume_score: int, anomaly_score: int):
+
+        # weighted fusion model
+        score = (volume_score * 0.6) + (anomaly_score * 0.4)
+
+        return min(int(score), 100)
+
+    @staticmethod
+    def severity(score: int):
+
+        if score >= 85:
+            return "CRITICAL"
+
+        if score >= 70:
+            return "HIGH"
+
+        if score >= 50:
+            return "MEDIUM"
+
+        return "LOW"

@@ -2,6 +2,6 @@ from src.mcp_tools.base_tool import BaseTool
 from src.splunk.queries import SplunkQueries
 
 class SecurityTools(BaseTool):
-    def get_security_logs(self,limit=20):
+    def get_error_logs(self,limit=20):
         query = SplunkQueries.get_error_logs(limit)  
         return self.execute(query)      

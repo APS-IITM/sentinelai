@@ -1,11 +1,12 @@
 from pydantic import BaseModel
-from typing import  Optional
 
-class ThreatFinding(BaseModel):
+
+class ThreatEvent(BaseModel):
     source: str
+    anomaly_type: str
     severity: str
     score: int
-    anomaly_type: str
+    attack_type: str
     description: str
     recommendation: str
-    record_count: int
+    data_points: int

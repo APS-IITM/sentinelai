@@ -1,61 +1,40 @@
-from src.anomaly.detector import (
-    StatisticalDetector,
-    MLDetector
-)
-
+from src.anomaly.detectors import StatisticalDetector, MLDetector
 from src.anomaly.scorer import RiskScorer
-from src.anomaly.models import ThreatFinding
+from src.anomaly.classifier import AttackClassifier
+from src.anomaly.models import ThreatEvent
 
 
 class AnomalyAnalyzer:
 
     def __init__(self):
+        self.ml = MLDetector()
 
-        self.ml_detector = MLDetector()
+    def analyze_series(self, source: str, values: list):
 
-    def analyze_series(
-        self,
-        source,
-        values
-    ):
-
-        stat_anomaly = (
-            StatisticalDetector
-            .z_score_detection(values)
-        )
-
-        ml_anomaly = (
-            self.ml_detector
-            .detect(values)
-        )
-
-        count = values[-1]
-
-        score = (
-            RiskScorer
-            .score_from_volume(count)
-        )
-
-        severity = (
-            RiskScorer
-            .severity(score)
-        )
-
-        if not stat_anomaly and not ml_anomaly:
+        if not values or len(values) < 2:
             return None
 
-        return ThreatFinding(
+        # STATISTICAL
+        stat_flag, stat_score = StatisticalDetector.detect_spike(values)
+
+        # ML
+        ml_flag, ml_score = self.ml.detect(values)
+
+        # RISK SCORE
+        score = RiskScorer.calculate(stat_score, ml_score)
+        severity = RiskScorer.severity(score)
+
+        # NO ANOMALY FILTER
+        if not stat_flag and not ml_flag:
+            return None
+
+        return ThreatEvent(
             source=source,
+            anomaly_type="VOLUME_SPIKE",
             severity=severity,
             score=score,
-            anomaly_type="Volume Spike",
-            description=(
-                f"Abnormal activity detected "
-                f"in {source}"
-            ),
-            recommendation=(
-                "Investigate source logs "
-                "for malicious behavior"
-            ),
-            record_count=count
+            attack_type=AttackClassifier.classify(values),
+            description=f"Anomaly detected in {source}",
+            recommendation="Investigate logs and correlate with authentication/network activity",
+            record_count=values[-1]
         )
