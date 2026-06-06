@@ -1,6 +1,9 @@
 from src.splunk.queries import (
     SplunkQueries
 )
+from src.splunk.utills import (
+    pretty_json
+)
 
 
 def print_logs(
@@ -16,7 +19,11 @@ def print_logs(
 
     if logs:
         print("\nSample Log:\n")
-        print(logs[0])
+        print(
+            pretty_json(
+                logs[0]
+            )
+        )
 
 
 def main():
