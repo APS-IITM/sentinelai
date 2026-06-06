@@ -1,5 +1,5 @@
 from src.splunk.queries import SplunkQueries
-from src.splunk.utills import pretty_json
+from utlis.formatter import pretty_json
 
 
 def test_all_queries():

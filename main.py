@@ -1,60 +1,57 @@
-from src.splunk.queries import (
-    SplunkQueries
-)
-from src.splunk.utills import (
-    pretty_json
-)
+from src.mcp_tools.auth_tools import AuthTools
+from src.mcp_tools.security_tools import SecurityTools
+from src.mcp_tools.system_tools import SystemTools
+
+from src.utlis.formatter import pretty_json
 
 
-def print_logs(
-    title,
-    logs
-):
-    print(f"\n{title}")
-    print("=" * 50)
+def print_section(title, response):
+    print("\n" + "=" * 60)
+    print(f"{title}")
+    print("=" * 60)
 
-    print(
-        f"Total Logs: {len(logs)}"
-    )
+    print(f"Success: {response.get('success')}")
+    print(f"Total Records: {response.get('count')}")
+    
+    if response.get("error"):
+        print(f"Error: {response['error']}")
+        return
 
-    if logs:
-        print("\nSample Log:\n")
-        print(
-            pretty_json(
-                logs[0]
-            )
-        )
+    data = response.get("data", [])
+
+    if data:
+        print("\nSample Record:\n")
+        print(pretty_json(data[0]))
 
 
 def main():
-    splunk = SplunkQueries()
 
-    auth_logs = (
-        splunk.get_auth_logs()
-    )
+   
+    auth_tool = AuthTools()
+    security_tool = SecurityTools()
+    system_tool = SystemTools()
 
-    error_logs = (
-        splunk.get_error_logs()
-    )
+   
+    auth_logs = auth_tool.get_auth_logs(limit=20)
+    print_section("AUTH LOGS", auth_logs)
 
-    system_logs = (
-        splunk.get_system_logs()
-    )
+   
+    error_logs = security_tool.get_security_logs(limit=20)
+    print_section("ERROR LOGS", error_logs)
 
-    print_logs(
-        "AUTH LOGS",
-        auth_logs
-    )
+   
+    system_logs = system_tool.get_system_logs(limit=20)
+    print_section("SYSTEM LOGS", system_logs)
 
-    print_logs(
-        "ERROR LOGS",
-        error_logs
-    )
+   
+    search_logs = system_tool.search_logs("login", limit=10)
+    print_section("SEARCH LOGS (login)", search_logs)
 
-    print_logs(
-        "SYSTEM LOGS",
-        system_logs
-    )
+    login_trend = system_tool.login_trend()
+    print_section("LOGIN TREND (ANOMALY INPUT)", login_trend)
+
+    error_trend = system_tool.error_trend()
+    print_section("ERROR TREND (ANOMALY INPUT)", error_trend)
 
 
 if __name__ == "__main__":

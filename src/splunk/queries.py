@@ -1,61 +1,55 @@
-from src.splunk.client import (
-    connect,
-    run_search,
-)
-
-
 class SplunkQueries:
-    def __init__(self):
-        self.service = connect()
 
-    def run_query(self, query):
-        return run_search(
-            self.service,
-            query
-        )
-
-    def get_auth_logs(
-        self,
-        limit=20
-    ):
-        query = f"""
-        search index=_internal
-        ("login" OR "authentication")
+    @staticmethod
+    def get_auth_logs(limit=20):
+        return f"""
+        search index=_internal ("login" OR "authentication")
+        | stats count by user, host
+        | sort -count
         | head {limit}
         """
 
-        return self.run_query(query)
-
-    def get_error_logs(
-        self,
-        limit=20
-    ):
-        query = f"""
+    @staticmethod
+    def get_error_logs(limit=20):
+        return f"""
         search index=_internal ERROR
+        | stats count by host, source
+        | sort -count
         | head {limit}
         """
 
-        return self.run_query(query)
-
-    def get_system_logs(
-        self,
-        limit=20
-    ):
-        query = f"""
+    @staticmethod
+    def get_system_logs(limit=20):
+        return f"""
         search index=_internal
+        | stats count by sourcetype
+        | sort -count
         | head {limit}
         """
 
-        return self.run_query(query)
-
-    def search_logs(
-        self,
-        keyword,
-        limit=20
-    ):
-        query = f"""
+    @staticmethod
+    def search_logs(keyword, limit=20):
+        return f"""
         search index=_internal "{keyword}"
+        | stats count by host, sourcetype
         | head {limit}
         """
 
-        return self.run_query(query)
+    # 🔥 IMPORTANT FOR DAY 4 (ANOMALY DETECTION READY)
+    @staticmethod
+    def login_volume():
+        return """
+        search index=_internal "login"
+        | bin _time span=5m
+        | stats count by _time
+        | sort _time
+        """
+
+    @staticmethod
+    def error_trend():
+        return """
+        search index=_internal ERROR
+        | bin _time span=5m
+        | stats count by _time
+        | sort _time
+        """
