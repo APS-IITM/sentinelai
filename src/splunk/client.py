@@ -1,4 +1,7 @@
+import time
+
 import splunklib.client as splunk_client
+import splunklib.results as results
 
 from src.splunk.config import(
     SPLUNK_HOST,
@@ -23,8 +26,18 @@ def connect():
 
 def run_search(service,query):
     job = service.jobs.create(query)
+    """"
+    Execute SPL query and return list of dictionaries.
+    """
 
     while not job.is_done():
-        pass
+        time.sleep(1)
+    reader = results.ResultsReader(job.results())
 
-    return job.results()
+    output =[]
+    for item in reader:
+        if isinstance(item,dict):
+            output.append(item)
+        
+    
+    return output
