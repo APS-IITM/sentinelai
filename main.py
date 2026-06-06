@@ -1,45 +1,54 @@
-from src.splunk.client import (
-    connect,
-    run_search,
+from src.splunk.queries import (
+    SplunkQueries
 )
 
-def show_apps(service):
-    print("\nConnected Sucessfully")
-    print("-"*50)
 
-    for app in service.apps:
-        print(app.name)
+def print_logs(
+    title,
+    logs
+):
+    print(f"\n{title}")
+    print("=" * 50)
 
-def fetch_logs(service):
-    print("\nFentching Logs...")
-    print("-"*50)
-
-    query = "search index = _internal | head 10"
-
-    results = run_search(
-        service,
-        query
+    print(
+        f"Total Logs: {len(logs)}"
     )
 
-    count = 0
+    if logs:
+        print("\nSample Log:\n")
+        print(logs[0])
 
-    for result in results:
-        print(result)
-        count +=1
-
-    print (f"\n Retrived {count} logs")
 
 def main():
-    try:
-        service = connect()
+    splunk = SplunkQueries()
 
-        show_apps(service)
+    auth_logs = (
+        splunk.get_auth_logs()
+    )
 
-        fetch_logs(service)
+    error_logs = (
+        splunk.get_error_logs()
+    )
 
-    except Exception as e:
-        print(f"Error: {e}")
+    system_logs = (
+        splunk.get_system_logs()
+    )
+
+    print_logs(
+        "AUTH LOGS",
+        auth_logs
+    )
+
+    print_logs(
+        "ERROR LOGS",
+        error_logs
+    )
+
+    print_logs(
+        "SYSTEM LOGS",
+        system_logs
+    )
 
 
 if __name__ == "__main__":
-    main()     
+    main()
