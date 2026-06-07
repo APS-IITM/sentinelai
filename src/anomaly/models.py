@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-
+from pydantic import BaseModel, Field
+from datetime import datetime
 
 class ThreatEvent(BaseModel):
     source: str
@@ -10,3 +10,4 @@ class ThreatEvent(BaseModel):
     description: str
     recommendation: str
     data_points: int
+    timestamp: datetime = Field(default_factory=datetime.now)

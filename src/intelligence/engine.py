@@ -1,67 +1,37 @@
-from src.intelligence.models import (
-    IntelligenceReport
-)
-
-from src.intelligence.correlator import (
-    EventCorrelator
-)
-
-from src.intelligence.timeline import (
-    TimelineBuilder
-)
-
-from src.intelligence.mitre import (
-    MitreMapper
-)
-
-from src.intelligence.reporter import (
-    StoryGenerator
-)
-
+from src.intelligence.models import IntelligenceReport
+from src.intelligence.correlator import EventCorrelator
+from src.intelligence.timeline import TimelineBuilder
+from src.intelligence.mitre import MitreMapper
+from src.intelligence.reporter import StoryGenerator
 
 class IntelligenceEngine:
 
     def analyze(self, events):
-
         if not events:
             return None
 
-        incident_type = (
-            EventCorrelator.correlate(
-                events
-            )
-        )
+        incident_type = EventCorrelator.correlate(events)
 
-        severity = max(
-            (
-                e.severity
-                for e in events
-            ),
-            default="LOW"
-        )
-
-        timeline = (
-            TimelineBuilder.build(
-                events
+        # FIX: Define a priority weight dictionary to avoid alphabetic string errors
+        SEVERITY_WEIGHTS = {"LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4}
+        
+        # Pull the maximum severity properly by looking up weights
+        try:
+            severity = max(
+                (e.severity for e in events),
+                key=lambda x: SEVERITY_WEIGHTS.get(x.upper(), 0),
+                default="LOW"
             )
-        )
+        except Exception:
+            severity = "LOW"
+
+        timeline = TimelineBuilder.build(events)
 
         mitre = []
-
         for event in events:
+            mitre.extend(MitreMapper.map_attack(event.attack_type))
 
-            mitre.extend(
-                MitreMapper.map_attack(
-                    event.attack_type
-                )
-            )
-
-        story = (
-            StoryGenerator.generate(
-                events,
-                incident_type
-            )
-        )
+        story = StoryGenerator.generate(events, incident_type)
 
         return IntelligenceReport(
             incident_type=incident_type,
