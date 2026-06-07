@@ -1,7 +1,6 @@
 from src.mcp_tools.system_tools import SystemTools
 from src.anomaly.analyzer import AnomalyAnalyzer
 
-
 def extract_values(response):
 
     values = []
