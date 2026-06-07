@@ -1,12 +1,20 @@
-import os 
+import os
 
 from dotenv import load_dotenv
-from openai import OpenAI
+
+import google.generativeai as genai
 
 load_dotenv()
 
-client = OpenAI(
+genai.configure(
     api_key=os.getenv(
-        "OPENAI_API_KEY"
-        )
+        "GOOGLE_API_KEY"
+    )
+)
+
+model = genai.GenerativeModel(
+    os.getenv(
+        "GEMINI_MODEL",
+        "gemini-2.5-flash"
+    )
 )

@@ -1,17 +1,8 @@
-import os
-
-from src.ai.client import client
+from src.ai.client import model
 from src.ai.prompts import SYSTEM_PROMPT
 
 
 class AIAnalyzer:
-
-    def __init__(self):
-
-        self.model = os.getenv(
-            "AI_MODEL",
-            "gpt-4.1-mini"
-        )
 
     def analyze_event(
         self,
@@ -19,6 +10,8 @@ class AIAnalyzer:
     ):
 
         prompt = f"""
+{SYSTEM_PROMPT}
+
 Security Incident
 
 Source:
@@ -46,25 +39,8 @@ Data Points:
 {threat_event.data_points}
 """
 
-        response = (
-            client.chat.completions.create(
-                model=self.model,
-                temperature=0.2,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": SYSTEM_PROMPT
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ]
-            )
+        response = model.generate_content(
+            prompt
         )
 
-        return (
-            response
-            .choices[0]
-            .message.content
-        )
+        return response.text

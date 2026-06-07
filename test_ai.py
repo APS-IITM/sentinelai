@@ -8,11 +8,11 @@ event = ThreatEvent(
     source="NETWORK_TRAFFIC",
     anomaly_type="VOLUME_SPIKE",
     severity="HIGH",
-    score=87,
+    score=92,
     attack_type="DDOS_ATTACK",
-    description="Traffic spike detected",
-    recommendation="Investigate",
-    data_points=450
+    description="Sudden spike in network traffic detected",
+    recommendation="Investigate source IPs",
+    data_points=500
 )
 
 ai = AIAnalyzer()
