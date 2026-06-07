@@ -1,6 +1,10 @@
 from src.ai.client import model
 from src.ai.prompts import SYSTEM_PROMPT
+from rich.console import Console
+from rich.markdown import Markdown
 
+
+console = Console()
 
 class AIAnalyzer:
 
@@ -39,8 +43,25 @@ Data Points:
 {threat_event.data_points}
 """
 
+        # Call the Google Gemini API endpoint
         response = model.generate_content(
             prompt
         )
 
-        return response.text
+        raw_markdown = response.text
+
+        # -------------------------------------------------------------
+        # BEAUTIFUL TERMINAL RENDERING LAYER
+        # -------------------------------------------------------------
+        console.print("\n")
+        console.print("[bold cyan]🤖 AI SOC ANALYST BRIEFING[/bold cyan]", justify="center")
+        console.print("[dim]─" * console.width + "[/dim]")
+        
+        # Convert raw Markdown text string into structured console objects
+        markdown_content = Markdown(raw_markdown)
+        console.print(markdown_content)
+        
+        console.print("[dim]─" * console.width + "[/dim]\n")
+        # -------------------------------------------------------------
+
+        return raw_markdown
