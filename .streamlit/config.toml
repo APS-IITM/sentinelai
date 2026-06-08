@@ -1,0 +1,6 @@
+[theme]
+primaryColor = "#D4AF37"          # Premium Champagne Gold
+backgroundColor = "#FAFAFA"      # Soft Ivory / Off-White
+secondaryBackgroundColor = "#FFFFFF" # Clean White for Cards/Sidebar
+textColor = "#1C1C1C"             # Deep Charcoal for crisp readability
+font = "sans serif"

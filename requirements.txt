@@ -27,3 +27,6 @@ loguru==0.7.3
 
 # Testing
 pytest==8.4.1
+
+#ui and graphing
+plotly==5.15.0
