@@ -1,41 +1,34 @@
 import streamlit as st
+from src.intelligence.engine import IntelligenceEngine
 
-st.title("🧭 Threat Intelligence & MITRE Mapping")
-st.caption("Correlated multi-stage attack story lines structured around TTP framework indicators.")
+st.title("🧭 Cross-Domain Intelligence Center")
+st.caption("Correlates isolated vector triggers into structural multi-stage attack story lines.")
 
-col1, col2 = st.columns([1, 2])
-
-with col1:
-    st.subheader("🛡️ Attack Progression Story")
-    st.markdown("""
-    1. **Reconnaissance** *External IP port scan recognized on internet gateway.*
-    2. **Access Execution** *High rate failed login spikes matching brute-force profile.*
-    3. **Persistence Attempt** *New local root account creation flagged.*
-    4. **Impact Operations** *Data exfiltration payload signature triggered via unexpected ports.*
-    """)
-
-with col2:
-    st.subheader("📊 MITRE ATT&CK Mapping matrix")
+if "active_threat_profiles" in st.session_state and st.session_state.active_threat_profiles:
+    engine = IntelligenceEngine()
     
-    # Grid UI displaying standard structural tags
-    g1, g2 = st.columns(2)
-    with g1:
-        st.markdown("""
-        **[T1046] Network Service Scanning** *Status:* Active Detection  
-        *Source Matrix:* Network Discovery Systems
-        """)
-        st.markdown("---")
-        st.markdown("""
-        **[T1110] Brute Force Logins** *Status:* Correlated Match  
-        *Source Matrix:* Security Event Logs
-        """)
-    with g2:
-        st.markdown("""
-        **[T1078] Valid Accounts Manipulation** *Status:* High Suspicion  
-        *Source Matrix:* Host Monitoring System
-        """)
-        st.markdown("---")
-        st.markdown("""
-        **[T1020] Automated Data Exfiltration** *Status:* Flagged Alert  
-        *Source Matrix:* Firewall Telemetry Data
-        """)
+    with st.spinner("Processing framework cross-correlations..."):
+        # Live processing via your custom intelligence module engine backend logic
+        report = engine.analyze(st.session_state.active_threat_profiles)
+        st.session_state.compiled_cti_report = report
+        
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        st.subheader("🔥 Correlated Campaign Context")
+        st.metric("Inferred Campaign Profile", report.incident_type)
+        st.metric("Peak Integrated Severity Context", report.severity)
+        
+        st.subheader("🎯 MITRE ATT&CK Mapping Profiles")
+        for tech in report.mitre_techniques:
+            st.markdown(f"`{tech}`")
+            
+    with col2:
+        st.subheader("📖 Attack Progression Story Summary")
+        st.info(report.attack_story)
+        
+        st.subheader("⏱️ Chronological Incident Audit Trail")
+        for idx, event in enumerate(report.timeline, 1):
+            st.markdown(f"**({idx})** `{event.get('time')}` | Asset Target Context: **{event.get('source')}** — Phase Classification Profile: `{event.get('attack')}` [`{event.get('severity')}`]")
+else:
+    st.warning("No threats available to run correlation engines against. Ensure data exists in Dashboard view.")
