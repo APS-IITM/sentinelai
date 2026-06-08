@@ -92,6 +92,7 @@ sentinelai/
 │
 ├── tests/
 ├── docs/
+├── main.py
 ├── requirements.txt
 ├── README.md
 └── .env
