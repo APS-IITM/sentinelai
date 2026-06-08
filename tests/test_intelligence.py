@@ -43,7 +43,7 @@ def create_test_events():
 def main():
 
     print("\n" + "=" * 60)
-    print(" SENTINELAI DAY 6 INTELLIGENCE ENGINE TEST ")
+    print(" SENTINELAI DAY INTELLIGENCE ENGINE TEST ")
     print("=" * 60)
 
     events = create_test_events()
