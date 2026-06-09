@@ -21,7 +21,9 @@ except Exception as e:
 
 global_console = Console()
 
-# Mocking your structural additions to integrate seamlessly with standard execution flow
+# ==========================================
+# 🧠 STATIC PRODUCTION ENGINE DEFINITIONS
+# ==========================================
 class AttackClassifier:
     @staticmethod
     def classify(values):
@@ -52,164 +54,167 @@ class EventCorrelator:
         attacks.discard("UNKNOWN")
         if not attacks: return "UNKNOWN", 0
 
-        # Correlation logic tree routing
         if "BRUTE_FORCE_ATTACK" in attacks and "NETWORK_SCAN" in attacks: return "RECON_TO_CREDENTIAL_ATTACK", 90
         if "NETWORK_SCAN" in attacks and "DDOS_ATTACK" in attacks: return "RECON_TO_DDOS", 85
         if "BRUTE_FORCE_ATTACK" in attacks and "SYSTEM_EXPLOIT" in attacks: return "EXPLOITATION_CHAIN_ATTACK", 88
         if len(attacks) > 1: return "MULTI_STAGE_ATTACK", 75
         return list(attacks)[0], 60
 
+class RiskScorer:
+    @staticmethod
+    def calculate(volume_score: int, anomaly_score: int):
+        # Weighted fusion model: 60% Volume, 40% Anomaly Signature Weight
+        score = (volume_score * 0.6) + (anomaly_score * 0.4)
+        return min(int(score), 100)
+
+    @staticmethod
+    def severity(score: int):
+        if score >= 85: return "CRITICAL"
+        if score >= 70: return "HIGH"
+        if score >= 50: return "MEDIUM"
+        return "LOW"
+
 # ==========================================
 # 🛑 SECURITY SCENARIO MATRIX GENERATOR
 # ==========================================
 class DynamicAttackMatrix:
-    """Generates precise volumetric spikes to trigger specific analytical branches."""
+    """Generates precise metric streams engineered to force calculated risk states."""
     
     BASELINE_AUTH = [12, 14, 15, 11, 13, 16, 12, 14, 15, 11, 13, 16, 14, 15, 12]
     BASELINE_ERR  = [2, 4, 3, 1, 2, 5, 2, 4, 3, 1, 2, 5, 3, 2, 4]
     BASELINE_NET  = [45, 52, 48, 50, 47, 55, 45, 52, 48, 50, 47, 55, 51, 49, 53]
 
     @classmethod
-    def generate_custom_vector(cls, scenario_target: str, stage_profile: str) -> dict:
+    def generate_targeted_profile(cls, target_log: str, threat_level: str) -> dict:
         """
-        Builds specific analytical conditions:
-        - BRUTE_FORCE_ATTACK: requires peak > avg * 3
-        - NETWORK_SCAN: requires peak > avg * 2
-        - ERROR_STORM: requires avg > 100
+        Dynamically designs baseline arrays and overrides scores to safely map out 
+        exact target outputs matching the RiskScorer specifications.
         """
         auth_stream = list(cls.BASELINE_AUTH)
         error_stream = list(cls.BASELINE_ERR)
         net_stream = list(cls.BASELINE_NET)
-
-        title_suffix = f"[{stage_profile.upper()} MODE]"
         
-        # Scenario 1: Authentication Attacks
-        if scenario_target == "1":
-            if stage_profile == "BRUTE_FORCE":
-                auth_stream[-1] = int(sum(auth_stream) * 4) # Guarantees peak > avg * 3
-            return {
-                "title": f"Targeted Authentication Exploitation {title_suffix}",
-                "desc": "Simulating high volume auth attempt patterns to isolate password spraying vectors.",
-                "auth": auth_stream, "error": error_stream, "network": net_stream,
-                "forced_classification": "BRUTE_FORCE_ATTACK"
-            }
-            
-        # Scenario 2: System Exceptions / Resource Floods
-        elif scenario_target == "2":
-            if stage_profile == "ERROR_STORM":
-                error_stream = [120, 140, 115, 130, 150, 110, 125, 135, 145, 160] # Guarantees avg > 100
-            return {
-                "title": f"Triggered Infrastructure Exception Storm {title_suffix}",
-                "desc": "Flooding system error collection endpoints to saturate log logging storage engines.",
-                "auth": auth_stream, "error": error_stream, "network": net_stream,
-                "forced_classification": "ERROR_STORM"
-            }
-            
-        # Scenario 3: Perimeter Scans
-        elif scenario_target == "3":
-            if stage_profile == "NETWORK_SCAN":
-                net_stream[-1] = int(sum(net_stream) * 2.2) # Guarantees peak > avg * 2
-            return {
-                "title": f"Volumetric Network Perimeter Exfiltration Scan {title_suffix}",
-                "desc": "Simulating widespread horizontal reconnaissance probing across internal firewalls.",
-                "auth": auth_stream, "error": error_stream, "network": net_stream,
-                "forced_classification": "NETWORK_SCAN"
-            }
-            
-        # Scenario 4: Multi-Stage Cross-Functional Attack Chains
-        elif scenario_target == "4":
-            if stage_profile == "RECON_TO_CREDENTIAL":
-                net_stream[-1] = int(sum(net_stream) * 2.2)
-                auth_stream[-1] = int(sum(auth_stream) * 4)
-            elif stage_profile == "EXPLOITATION_CHAIN":
-                auth_stream[-1] = int(sum(auth_stream) * 4)
-                error_stream = [110, 115, 120, 130, 105, 140, 110, 115, 125, 150]
-            else: # Standard multi stage fallback 
-                net_stream[-1] = int(sum(net_stream) * 2.2)
-                error_stream = [110, 115, 120, 130, 105, 140, 110, 115, 125, 150]
+        # Configure static test matrix weights
+        if threat_level == "CRITICAL":   # Goal: Score >= 85
+            v_score, a_score = 95, 90
+            auth_stream[-1] = int(sum(auth_stream) * 6)
+            error_stream = [150] * 12
+        elif threat_level == "HIGH":     # Goal: 70 <= Score < 85
+            v_score, a_score = 75, 80
+            net_stream[-1] = int(sum(net_stream) * 3)
+        elif threat_level == "MEDIUM":   # Goal: 50 <= Score < 70
+            v_score, a_score = 55, 60
+            auth_stream[-1] = int(sum(auth_stream) * 3.2)
+        else:                            # LOW Tier fallback / background noise
+            v_score, a_score = 25, 30
 
-            return {
-                "title": f"Advanced Synchronized Multi-Stage Killchain {title_suffix}",
-                "desc": "Coordinating interleaved cross-vector events to test relational heuristics logic rules.",
-                "auth": auth_stream, "error": error_stream, "network": net_stream,
-                "forced_classification": "MULTI_STAGE_CHAIN"
-            }
+        desc_meta = f"Testing system infrastructure limits at an explicit {threat_level} severity boundary."
+
+        # Map execution streams based on selected components
+        if target_log == "1":
+            return {"title": f"Auth Stream Analysis [{threat_level}]", "desc": desc_meta, "auth": auth_stream, "error": list(cls.BASELINE_ERR), "network": list(cls.BASELINE_NET), "v": v_score, "a": a_score}
+        elif target_log == "2":
+            if threat_level in ["HIGH", "CRITICAL"]: error_stream = [130] * 10
+            return {"title": f"System Exception Flooding [{threat_level}]", "desc": desc_meta, "auth": list(cls.BASELINE_AUTH), "error": error_stream, "network": list(cls.BASELINE_NET), "v": v_score, "a": a_score}
+        elif target_log == "3":
+            return {"title": f"Perimeter Ingress Diagnostics [{threat_level}]", "desc": desc_meta, "auth": list(cls.BASELINE_AUTH), "error": list(cls.BASELINE_ERR), "network": net_stream, "v": v_score, "a": a_score}
+        else:
+            # Multi-stage killchains activate all fields at once
+            if threat_level in ["HIGH", "CRITICAL"]:
+                auth_stream[-1] = int(sum(auth_stream) * 4)
+                net_stream[-1] = int(sum(net_stream) * 3)
+            return {"title": f"Full-Spectrum Enterprise Killchain [{threat_level}]", "desc": desc_meta, "auth": auth_stream, "error": error_stream, "network": net_stream, "v": v_score, "a": a_score}
 
 # ==========================================
 # 🚀 PIPELINE LIFECYCLE MANAGEMENT UTILITIES
 # ==========================================
-def run_anomaly_detection(data: dict, anomaly_engine) -> list:
-    """Passes array payloads into the pipeline and maps classifications natively."""
+def run_anomaly_detection(data: dict) -> list:
+    """Evaluates telemetry patterns and aggregates active events into triage payloads."""
     global_console.print(f"\n[bold gold1]─[/bold gold1]" * 60)
-    global_console.print(f"📡 [bold white]EXECUTING VECTOR SIMULATION:[/bold white] {data['title']}")
-    global_console.print(f"[dim]Description: {data['desc']}[/dim]")
+    global_console.print(f"📡 [bold white]EXECUTING TARGETED LOG EXTRACTION:[/bold white] {data['title']}")
+    global_console.print(f"[dim]Scenario Meta: {data['desc']}[/dim]")
     global_console.print(f"─" * 60)
     
     synthetic_events = []
     
-    # Process Auth Track
     auth_class = AttackClassifier.classify(data['auth'])
     if auth_class != "NORMAL_ACTIVITY":
-        global_console.print(f"  ⚠️  [ANOMALY FLAG] Authentication Core: Detected [bold red]{auth_class}[/bold red]")
-        synthetic_events.append({"source": "Authentication Logs", "attack_type": auth_class, "severity": "HIGH"})
+        global_console.print(f"  ⚠️  [ANOMALY FLAG] Authentication Matrix Branch -> Isolated: [bold red]{auth_class}[/bold red]")
+        synthetic_events.append({"source": "Authentication Logs", "attack_type": auth_class})
         
-    # Process Error Track
     error_class = AttackClassifier.classify(data['error'])
     if error_class != "NORMAL_ACTIVITY":
-        global_console.print(f"  ⚠️  [ANOMALY FLAG] System Exception Core: Detected [bold red]{error_class}[/bold red]")
-        # Explicit override to map to specific MITRE rule criteria if parsing multi-stages
-        type_label = "SYSTEM_EXPLOIT" if data.get("forced_classification") == "EXPLOITATION_CHAIN" else error_class
-        synthetic_events.append({"source": "System Error Logs", "attack_type": type_label, "severity": "CRITICAL"})
+        global_console.print(f"  ⚠️  [ANOMALY FLAG] Internal Exception Branch -> Isolated: [bold red]{error_class}[/bold red]")
+        # Inject contextual cross-over label if running multi-stage testing setups
+        type_lbl = "SYSTEM_EXPLOIT" if "Full-Spectrum" in data['title'] else error_class
+        synthetic_events.append({"source": "System Error Logs", "attack_type": type_lbl})
         
-    # Process Network Track
     net_class = AttackClassifier.classify(data['network'])
     if net_class != "NORMAL_ACTIVITY":
-        global_console.print(f"  ⚠️  [ANOMALY FLAG] Network Perimeter Core: Detected [bold red]{net_class}[/bold red]")
-        synthetic_events.append({"source": "Network Perimeter Logs", "attack_type": net_class, "severity": "MEDIUM"})
+        global_console.print(f"  ⚠️  [ANOMALY FLAG] Boundary Interface Network -> Isolated: [bold red]{net_class}[/bold red]")
+        synthetic_events.append({"source": "Network Perimeter Logs", "attack_type": net_class})
 
     if not synthetic_events:
-        global_console.print("  [bold green]✅ SYSTEM STABLE:[/bold green] Array values evaluated as standard noise baseline profiles.")
+        global_console.print("  [bold green]✅ CONSOLE QUIET:[/bold green] Injected streams settled cleanly within noise limits.")
         
     return synthetic_events
 
-def trigger_unified_intelligence_briefing(aggregated_threats: list, selected_meta: dict, intel_engine, ai_engine):
-    """Executes rule validation and invokes the Generative AI core analysis context."""
+def trigger_unified_intelligence_briefing(aggregated_threats: list, simulation_payload: dict, ai_engine):
+    """Executes rule classification, calculates matrix scores, and pipes briefs to the AI console."""
     global_console.print("\n" + "═" * 80)
-    global_console.print(" 🛡️  SENTINELAI RULES ENGINE ENGINE CORRELATION LAYER ".center(80, "═"))
+    global_console.print(" 🛡️  SENTINELAI SECURITY LAYER ORCHESTRATION INTERFACE ".center(80, "═"))
     global_console.print("═" * 80)
     
-    # Direct execution of your custom EventCorrelator static code sequence
-    correlation_signature, hazard_score = EventCorrelator.correlate(aggregated_threats)
+    # 1. Run Correlator Engine
+    correlation_signature, correlation_confidence = EventCorrelator.correlate(aggregated_threats)
     
-    global_console.print(f" 🔹 Calculated Threat Signature Matrix : [bold gold1]{correlation_signature}[/bold gold1]")
-    global_console.print(f" 🔹 Engine Matrix Confidence Score      : [ {hazard_score} / 100 ]")
-    global_console.print(f" 🔹 Active Correlated Events Count      : [ {len(aggregated_threats)} Log Items ]")
+    # 2. Compute Risk Metrics via RiskScorer
+    raw_v = simulation_payload["v"]
+    raw_a = simulation_payload["a"]
+    computed_score = RiskScorer.calculate(raw_v, raw_a)
+    severity_label = RiskScorer.severity(computed_score)
+    
+    # Render Metrics Panel Dashboard layout via terminal colors
+    sev_colors = {"CRITICAL": "bold red", "HIGH": "bold orange1", "MEDIUM": "bold yellow", "LOW": "bold green"}
+    chosen_color = sev_colors.get(severity_label, "bold white")
+    
+    print(f" 🔹 Calculated Threat Signature Matrix : [bold gold1]{correlation_signature}[/bold gold1]")
+    print(f" 🔹 Correlator Core Base Score         : {correlation_confidence}/100")
+    print(f" 🔹 Injected Volumetric Metric Value   : {raw_v}")
+    print(f" 🔹 Injected Anomaly Signature Value    : {raw_a}")
+    global_console.print(f" 🔹 Fusion Core Consolidated Score     : [bold white]{computed_score}[/bold white]/100")
+    global_console.print(f" 🔹 Determined Operational Severity    : [{chosen_color}]{severity_label}[/{chosen_color}]")
 
+    # 3. Trigger Autonomous Generative Analysis Pipeline
     if ai_enabled and ai_engine:
         global_console.print("\n" + "═" * 80)
-        global_console.print(" 🤖 AI SOC FORENSIC INTELLIGENCE TASK BRIEFING ".center(80, "═"))
+        global_console.print(" 🤖 AI SOC FORENSIC INTELLIGENCE INTERFACE DISPATCH ".center(80, "═"))
         global_console.print("═" * 80)
         
-        manifest = {
+        manifest_payload = {
             "evaluation_timestamp": datetime.utcnow().isoformat() + "Z",
+            "risk_scoring_matrix": {
+                "calculated_fusion_score": computed_score,
+                "assigned_severity_profile": severity_label,
+                "input_volume_weight": raw_v,
+                "input_anomaly_weight": raw_a
+            },
             "correlation_engine_summary": {
                 "signature_match": correlation_signature,
-                "global_severity_state": "HIGH" if hazard_score >= 75 else "MEDIUM",
-                "hazard_score": hazard_score
+                "rule_confidence_rating": correlation_confidence
             },
-            "raw_incident_timeline": aggregated_threats
+            "tracked_anomalies_list": aggregated_threats
         }
 
-        # Pack data cleanly inside your carrier event architecture
-        class UnifiedThreatCarrier:
-            def __init__(self, description, severity):
-                self.description = description
-                self.severity = severity
+        class SyntheticCarrier:
+            def __init__(self, text, sev):
+                self.description = text
+                self.severity = sev
 
-        payload_carrier = UnifiedThreatCarrier(json.dumps(manifest, indent=2), "CRITICAL" if hazard_score > 80 else "HIGH")
+        carrier_instance = SyntheticCarrier(json.dumps(manifest_payload, indent=2), severity_label)
 
         with global_console.status("[bold white]Streaming scenario manifest parameters to Google Gemini Core...[/bold white]"):
-            raw_markdown = ai_engine.analyze_event(payload_carrier)
+            raw_markdown = ai_engine.analyze_event(carrier_instance)
 
         global_console.print("\n")
         global_console.print("[bold cyan]🤖 AI SOC ANALYST CORRELATED REPORT[/bold cyan]", justify="center")
@@ -222,60 +227,44 @@ def trigger_unified_intelligence_briefing(aggregated_threats: list, selected_met
 # ==========================================
 def main():
     global_console.print("[bold white]========================================================================[/bold white]")
-    global_console.print(" 🛡️  SENTINELAI: TARGETED LOG EXTRACTION & ATTACK INTENSITY SIMULATOR ".center(80, " "))
+    global_console.print(" 🛡️  SENTINELAI: ADVANCED ADAPTIVE ATTACK & RISK LEVEL SIMULATOR ".center(80, " "))
     global_console.print("[bold white]========================================================================[/bold white]")
 
-    anomaly_engine = AnomalyAnalyzer()
-    intel_engine = IntelligenceEngine()
     ai_engine = AIAnalyzer() if ai_enabled else None
 
-    # Step 1: Target Choice Matrix Selector
-    print("\n📦 STEP 1: SELECT VECTOR SIMULATION PAIR CATEGORY:")
-    print("   [1] Authentication Log Vectors")
-    print("   [2] System Error Exception Architectures")
-    print("   [3] Network Perimeter Gateway Routers")
-    print("   [4] Correlated Multi-Stage Attack Chains (Cross-Telemetry)")
+    # Step 1: Select Telemetry Target Index
+    print("\n📦 STEP 1: CHOOSE TARGET INGESTION SINK PROFILE:")
+    print("   [1] Authentication Telemetry Pipeline Logs")
+    print("   [2] System Error Core Application Logs")
+    print("   [3] Network Boundary Gateway Device Logs")
+    print("   [4] Full Multi-Tier Infrastructure Chain (All Sinks Interleaved)")
     
-    target_log = input("\nEnter target index (1-4): ").strip()
-    if target_log not in ["1", "2", "3", "4"]: return
+    target_log = input("\nEnter log target index option (1-4): ").strip()
+    if target_log not in ["1", "2", "3", "4"]:
+        print("❌ Invalid target index parameter matrix selector.")
+        return
 
-    # Step 2: Adaptive Tier Routing Rules
-    print("\n💥 STEP 2: SELECT PRECISE SIMULATION STAGE TARGET RULE:")
-    stage_profile = ""
-    if target_log == "1":
-        print("   [BRUTE_FORCE] Sets peak > avg * 3 validation logic loops.")
-        print("   [NORMAL]      Runs default user baseline environment noise loops.")
-        choice = input("\nSelect Stage Target Profile: ").strip().upper()
-        stage_profile = "BRUTE_FORCE" if choice == "BRUTE_FORCE" else "NORMAL"
-    elif target_log == "2":
-        print("   [ERROR_STORM] Overwrites list matrix indexes so total avg > 100.")
-        print("   [NORMAL]      Runs default user baseline environment noise loops.")
-        choice = input("\nSelect Stage Target Profile: ").strip().upper()
-        stage_profile = "ERROR_STORM" if choice == "ERROR_STORM" else "NORMAL"
-    elif target_log == "3":
-        print("   [NETWORK_SCAN] Sets peak > avg * 2 validation logic loops.")
-        print("   [NORMAL]      Runs default user baseline environment noise loops.")
-        choice = input("\nSelect Stage Target Profile: ").strip().upper()
-        stage_profile = "NETWORK_SCAN" if choice == "NETWORK_SCAN" else "NORMAL"
-    elif target_log == "4":
-        print("   [RECON_TO_CREDENTIAL] Triggers 'RECON_TO_CREDENTIAL_ATTACK' rule block (Score: 90).")
-        print("   [EXPLOITATION_CHAIN]  Triggers 'EXPLOITATION_CHAIN_ATTACK' rule block (Score: 88).")
-        print("   [STANDARD_MULTI]      Triggers basic 'MULTI_STAGE_ATTACK' rule block (Score: 75).")
-        choice = input("\nSelect Stage Target Profile: ").strip().upper()
-        if choice in ["RECON_TO_CREDENTIAL", "EXPLOITATION_CHAIN", "STANDARD_MULTI"]:
-            stage_profile = choice
-        else:
-            stage_profile = "STANDARD_MULTI"
+    # Step 2: Select Explicit Risk Severity Tier
+    print("\n💥 STEP 2: CHOOSE TARGET ATTACK LEVEL SEVERITY PROFILE MATRIX:")
+    print("   [LOW]      Simulates standard environmental shifts.      (Risk Range: 0-49)")
+    print("   [MEDIUM]   Triggers threshold warning flags.            (Risk Range: 50-69)")
+    print("   [HIGH]     Generates notable perimeter warnings.         (Risk Range: 70-84)")
+    print("   [CRITICAL] Executes full infrastructural exploit storm.  (Risk Range: 85-100)")
+    
+    threat_level = input("\nEnter attack profile target level (LOW, MEDIUM, HIGH, CRITICAL): ").strip().upper()
+    if threat_level not in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]:
+        print("❌ Unknown severity layer variable declaration.")
+        return
 
     # Process and build specific payloads
-    simulation_payload = DynamicAttackMatrix.generate_custom_vector(target_log, stage_profile)
-    discovered_threats = run_anomaly_detection(simulation_payload, anomaly_engine)
+    simulation_payload = DynamicAttackMatrix.generate_targeted_profile(target_log, threat_level)
+    discovered_threats = run_anomaly_detection(simulation_payload)
     
-    if discovered_threats:
-        tracker_meta = {"target_log_index": target_log, "stage_profile": stage_profile}
-        trigger_unified_intelligence_briefing(discovered_threats, tracker_meta, intel_engine, ai_engine)
-    else:
-        global_console.print("\n[bold yellow]⚪ SIMULATION COMPLETE:[/bold yellow] Baseline limits maintained. Routing canceled.")
+    # Process analytical outputs even if list arrays are empty to validate Low-severity metrics loops
+    trigger_unified_intelligence_briefing(discovered_threats, simulation_payload, ai_engine)
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\nExiting attack configuration manager safely.")
