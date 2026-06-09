@@ -1,73 +1,22 @@
-import json
-from pathlib import Path
+from src.storage.base_store import BaseStore
+from datetime import datetime
 
+class AIReportStore(BaseStore):
 
-class AIReportStore:
+    def __init__(self):
+        super().__init__("data/ai_reports.json")
 
-    REPORT_FILE = Path(
-        "data/ai_reports.json"
-    )
+    def save(self, report: dict):
+        data = self._read()
 
-    REPORT_FILE.parent.mkdir(
-        parents=True,
-        exist_ok=True
-    )
+        report["stored_at"] = datetime.now().isoformat()
+        data.append(report)
 
-    @classmethod
-    def save(cls, report):
+        self._write(data)
 
-        existing = []
+    def get_all(self):
+        return self._read()
 
-        if cls.REPORT_FILE.exists():
-
-            try:
-
-                with open(
-                    cls.REPORT_FILE,
-                    "r",
-                    encoding="utf-8"
-                ) as f:
-
-                    existing = json.load(f)
-
-            except Exception:
-                existing = []
-
-        existing.append(report)
-
-        with open(
-            cls.REPORT_FILE,
-            "w",
-            encoding="utf-8"
-        ) as f:
-
-            json.dump(
-                existing,
-                f,
-                indent=4,
-                default=str
-            )
-
-    @classmethod
-    def get_all(cls):
-
-        if not cls.REPORT_FILE.exists():
-            return []
-
-        with open(
-            cls.REPORT_FILE,
-            "r",
-            encoding="utf-8"
-        ) as f:
-
-            return json.load(f)
-
-    @classmethod
-    def latest(cls):
-
-        reports = cls.get_all()
-
-        if not reports:
-            return None
-
-        return reports[-1]
+    def latest(self):
+        data = self._read()
+        return data[-1] if data else None

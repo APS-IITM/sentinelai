@@ -1,63 +1,21 @@
-import json
-from pathlib import Path
+from src.storage.base_store import BaseStore
+from datetime import datetime
 
+class IntelligenceStore(BaseStore):
 
-class IntelligenceStore:
+    def __init__(self):
+        super().__init__("data/intelligence_reports.json")
 
-    FILE = Path(
-        "data/intelligence_reports.json"
-    )
+    def save(self, report):
+        data = self._read()
 
-    FILE.parent.mkdir(
-        parents=True,
-        exist_ok=True
-    )
+        if hasattr(report, "model_dump"):
+            report = report.model_dump()
 
-    @classmethod
-    def save(cls, report):
+        report["stored_at"] = datetime.now().isoformat()
 
-        records = []
+        data.append(report)
+        self._write(data)
 
-        if cls.FILE.exists():
-
-            try:
-
-                with open(
-                    cls.FILE,
-                    "r",
-                    encoding="utf-8"
-                ) as f:
-
-                    records = json.load(f)
-
-            except Exception:
-                records = []
-
-        records.append(report)
-
-        with open(
-            cls.FILE,
-            "w",
-            encoding="utf-8"
-        ) as f:
-
-            json.dump(
-                records,
-                f,
-                indent=4,
-                default=str
-            )
-
-    @classmethod
-    def get_all(cls):
-
-        if not cls.FILE.exists():
-            return []
-
-        with open(
-            cls.FILE,
-            "r",
-            encoding="utf-8"
-        ) as f:
-
-            return json.load(f)
+    def get_all(self):
+        return self._read()

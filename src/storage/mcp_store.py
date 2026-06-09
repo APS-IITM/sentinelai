@@ -1,32 +1,37 @@
 import json
 from pathlib import Path
-from src.splunk.config import DATA_DIR, MCP_DATA_STORE
+from datetime import datetime
 
 class MCPStore:
 
-    @staticmethod
-    def save(tool_name, data):
+    BASE_DIR = Path("data/mcp")
+    BASE_DIR.mkdir(parents=True, exist_ok=True)
 
-        MCP_DATA_STORE.setdefault(tool_name, [])
-        MCP_DATA_STORE[tool_name].append(data)
+    @classmethod
+    def save(cls, tool_name: str, data: dict):
 
-        file_path = DATA_DIR / f"{tool_name}.json"
+        file_path = cls.BASE_DIR / f"{tool_name}.json"
 
-        existing = []
-
+        records = []
         if file_path.exists():
-            with open(file_path, "r", encoding="utf-8") as f:
-                existing = json.load(f)
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    records = json.load(f)
+            except Exception:
+                records = []
 
-        existing.append(data)
+        data["stored_at"] = datetime.now().isoformat()
+        records.append(data)
 
         with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(existing, f, indent=4)
+            json.dump(records, f, indent=4, default=str)
 
-    @staticmethod
-    def get(tool_name):
-        return MCP_DATA_STORE.get(tool_name, [])
+    @classmethod
+    def get(cls, tool_name: str):
+        file_path = cls.BASE_DIR / f"{tool_name}.json"
 
-    @staticmethod
-    def clear(tool_name):
-        MCP_DATA_STORE[tool_name] = []
+        if not file_path.exists():
+            return []
+
+        with open(file_path, "r", encoding="utf-8") as f:
+            return json.load(f)

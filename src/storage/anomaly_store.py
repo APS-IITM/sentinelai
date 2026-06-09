@@ -1,52 +1,21 @@
-import json
-from pathlib import Path
+from src.storage.base_store import BaseStore
 from datetime import datetime
 
-ANOMALY_FILE = Path("data/anomalies.json")
+class AnomalyStore(BaseStore):
 
-ANOMALY_FILE.parent.mkdir(
-    parents=True,
-    exist_ok=True
-)
+    def __init__(self):
+        super().__init__("data/anomalies.json")
 
+    def save(self, event):
+        data = self._read()
 
-class AnomalyStore:
+        if hasattr(event, "model_dump"):
+            event = event.model_dump()
 
-    @staticmethod
-    def save(event):
+        event["stored_at"] = datetime.now().isoformat()
 
-        existing = []
+        data.append(event)
+        self._write(data)
 
-        if ANOMALY_FILE.exists():
-            with open(
-                ANOMALY_FILE,
-                "r",
-                encoding="utf-8"
-            ) as f:
-                existing = json.load(f)
-
-        existing.append(event)
-
-        with open(
-            ANOMALY_FILE,
-            "w",
-            encoding="utf-8"
-        ) as f:
-            json.dump(
-                existing,
-                f,
-                indent=4
-            )
-
-    @staticmethod
-    def get_all():
-
-        if not ANOMALY_FILE.exists():
-            return []
-
-        with open(
-            ANOMALY_FILE,
-            "r",
-            encoding="utf-8"
-        ) as f:
-            return json.load(f)
+    def get_all(self):
+        return self._read()
