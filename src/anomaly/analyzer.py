@@ -1,34 +1,49 @@
-from src.anomaly.detectors import StatisticalDetector, MLDetector
+from src.anomaly.detectors import (
+    StatisticalDetector,
+    MLDetector
+)
+
 from src.anomaly.scorer import RiskScorer
 from src.anomaly.classifier import AttackClassifier
 from src.anomaly.models import ThreatEvent
+from src.storage.anomaly_store import AnomalyStore
+
 
 class AnomalyAnalyzer:
 
     def __init__(self):
         self.ml = MLDetector()
 
-    def analyze_series(self, source: str, values: list):
+    def analyze_series(
+        self,
+        source: str,
+        values: list
+    ):
 
         if not values or len(values) < 2:
             return None
 
-        # 1. STATISTICAL ENGINE DETECTS SPIKES (Z-SCORE)
-        stat_flag, stat_score = StatisticalDetector.detect_spike(values)
+        stat_flag, stat_score = (
+            StatisticalDetector.detect_spike(values)
+        )
 
-        # 2. MACHINE LEARNING ENGINE RUNS PATTERN CHECK (ISOLATION FOREST)
-        ml_flag, ml_score = self.ml.detect(values)
+        ml_flag, ml_score = (
+            self.ml.detect(values)
+        )
 
-        # 3. FUSION RISK SCORE AND SEVERITY ASSIGNMENT
-        score = RiskScorer.calculate(stat_score, ml_score)
-        severity = RiskScorer.severity(score)
+        score = RiskScorer.calculate(
+            stat_score,
+            ml_score
+        )
 
-        # 4. FILTER OUT NORMAL LOG TRAFFIC WINDOWS
+        severity = RiskScorer.severity(
+            score
+        )
+
         if not stat_flag and not ml_flag:
             return None
 
-        # 5. CONSTRUCT CORRECTLY MAPPED PYDANTIC THREAT OBJECT
-        return ThreatEvent(
+        threat = ThreatEvent(
             source=source,
             anomaly_type="VOLUME_SPIKE",
             severity=severity,
@@ -36,5 +51,12 @@ class AnomalyAnalyzer:
             attack_type=AttackClassifier.classify(values),
             description=f"Automated anomaly detected in {source} log stream.",
             recommendation="Investigate raw logs via Splunk queries and correlate source IP profiles.",
-            data_points=int(values[-1])  # FIXED: Perfectly maps to data_points schema parameter
+            data_points=int(values[-1])
         )
+
+        # Persist anomaly
+        AnomalyStore.save(
+            threat.model_dump(mode="json")
+        )
+
+        return threat

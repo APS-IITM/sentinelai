@@ -4,6 +4,8 @@ from src.splunk.queries import SplunkQueries
 
 class NetworkTools(BaseTool):
 
+    TOOL_NAME = "network"
+
     def get_network_logs(self, limit=20):
         return self.execute(
             SplunkQueries.get_network_logs(limit)

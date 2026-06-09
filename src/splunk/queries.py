@@ -1,75 +1,66 @@
 class SplunkQueries:
 
+    # ==========================
+    # AUTH
+    # ==========================
     @staticmethod
-    def get_auth_logs(limit=20):
+    def get_auth_logs(limit=20, earliest="-24h"):
         return f"""
-        search index=_internal ("login" OR "authentication")
+        search index=_internal earliest={earliest} ("login" OR "authentication")
         | stats count by user, host
         | sort -count
         | head {limit}
         """
 
     @staticmethod
-    def get_error_logs(limit=20):
+    def login_trend():
+        return """
+        search index=_internal earliest=-24h "login"
+        | bin _time span=5m
+        | stats count by _time
+        | sort _time
+        """
+
+    # ==========================
+    # ERRORS
+    # ==========================
+    @staticmethod
+    def get_error_logs(limit=20, earliest="-24h"):
         return f"""
-        search index=_internal ERROR
+        search index=_internal earliest={earliest} ERROR
         | stats count by host, source
         | sort -count
         | head {limit}
         """
 
     @staticmethod
-    def get_system_logs(limit=20):
+    def error_trend():
+        return """
+        search index=_internal earliest=-24h ERROR
+        | bin _time span=5m
+        | stats count by _time
+        | sort _time
+        """
+
+    # ==========================
+    # SYSTEM
+    # ==========================
+    @staticmethod
+    def get_system_logs(limit=20, earliest="-24h"):
         return f"""
-        search index=_internal
+        search index=_internal earliest={earliest}
         | stats count by sourcetype
         | sort -count
         | head {limit}
         """
 
-    @staticmethod
-    def search_logs(keyword, limit=20):
-        return f"""
-        search index=_internal "{keyword}"
-        | stats count by host, sourcetype
-        | head {limit}
-        """
-
-    @staticmethod
-    def login_trend():
-        return """
-        search index=_internal "login"
-        | bin _time span=5m
-        | stats count by _time
-        | sort _time
-        """
-
-    @staticmethod
-    def error_trend():
-        return """
-        search index=_internal ERROR
-        | bin _time span=5m
-        | stats count by _time
-        | sort _time
-        """
-
     # ==========================
-    # NETWORK LOGS
+    # NETWORK
     # ==========================
-
-    @staticmethod
-    def get_network_logs(limit=20):
-        return f"""
-        search index=network
-        | stats count by SRC, DST, PORT, ACTION
-        | sort -count
-        | head {limit}
-        """
-
     @staticmethod
     def network_trend():
         return """
-        search index=network
+        search index=network earliest=-24h
         | bin _time span=5m
         | stats count by _time
         | sort _time
@@ -78,7 +69,7 @@ class SplunkQueries:
     @staticmethod
     def failed_connections(limit=20):
         return f"""
-        search index=network ACTION=DENY
+        search index=network ACTION=DENY earliest=-24h
         | stats count by SRC, DST, PORT
         | sort -count
         | head {limit}
@@ -87,7 +78,7 @@ class SplunkQueries:
     @staticmethod
     def top_source_ips(limit=20):
         return f"""
-        search index=network
+        search index=network earliest=-24h
         | stats count by SRC
         | sort -count
         | head {limit}
@@ -96,7 +87,7 @@ class SplunkQueries:
     @staticmethod
     def top_destination_ips(limit=20):
         return f"""
-        search index=network
+        search index=network earliest=-24h
         | stats count by DST
         | sort -count
         | head {limit}
@@ -105,7 +96,7 @@ class SplunkQueries:
     @staticmethod
     def port_scan_detection():
         return """
-        search index=network
+        search index=network earliest=-24h
         | stats dc(PORT) as unique_ports by SRC
         | where unique_ports > 20
         | sort -unique_ports
