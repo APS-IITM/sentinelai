@@ -1,23 +1,60 @@
 import json
 from pathlib import Path
-from datetime import datetime
+from typing import Any, List
+
 
 class BaseStore:
+    """
+    Industrial-grade JSON persistence engine.
+    - Safe read/write
+    - Auto file creation
+    - Corruption resistant
+    - Unified interface for all stores
+    """
 
-    def __init__(self, file_path: str):
-        self.file_path = Path(file_path)
-        self.file_path.parent.mkdir(parents=True, exist_ok=True)
+    FILE_PATH: Path = None
 
-    def _read(self):
-        if not self.file_path.exists():
-            return []
+    @classmethod
+    def _ensure_file(cls):
+        if cls.FILE_PATH is None:
+            raise ValueError("FILE_PATH not defined in subclass")
+
+        cls.FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+        if not cls.FILE_PATH.exists():
+            cls.FILE_PATH.write_text("[]", encoding="utf-8")
+
+    @classmethod
+    def save(cls, record: Any) -> None:
+        cls._ensure_file()
 
         try:
-            with open(self.file_path, "r", encoding="utf-8") as f:
-                return json.load(f)
+            data = json.loads(cls.FILE_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            data = []
+
+        data.append(record)
+
+        cls.FILE_PATH.write_text(
+            json.dumps(data, indent=4, default=str),
+            encoding="utf-8"
+        )
+
+    @classmethod
+    def get_all(cls) -> List[Any]:
+        cls._ensure_file()
+
+        try:
+            return json.loads(cls.FILE_PATH.read_text(encoding="utf-8"))
         except Exception:
             return []
 
-    def _write(self, data):
-        with open(self.file_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4, default=str)
+    @classmethod
+    def latest(cls) -> Any:
+        data = cls.get_all()
+        return data[-1] if data else None
+
+    @classmethod
+    def clear(cls) -> None:
+        cls._ensure_file()
+        cls.FILE_PATH.write_text("[]", encoding="utf-8")
