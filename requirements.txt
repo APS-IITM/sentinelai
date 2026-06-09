@@ -30,3 +30,6 @@ pytest==8.4.1
 
 #ui and graphing
 plotly==5.15.0
+
+#devops
+watchdog==3.0.0
