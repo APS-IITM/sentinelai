@@ -13,7 +13,7 @@ numpy==2.3.1
 scikit-learn==1.7.1
 scipy==1.16.0
 
-# Dashboard
+# UI
 streamlit==1.47.0
 
 # AI / LLM Integration
@@ -31,5 +31,6 @@ pytest==8.4.1
 #ui and graphing
 plotly==5.15.0
 
-#devops
-watchdog==3.0.0
+
+# Supabase
+supabase==2.24.0
