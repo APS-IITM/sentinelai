@@ -1,118 +1,171 @@
 import streamlit as st
 import time
 
-# 1. Page Settings (Must be the absolute first Streamlit command)
+from app_pages.ui_components.theme import apply_theme
+
+# =========================
+# PAGE CONFIG
+# =========================
 st.set_page_config(
-    page_title="SentinelAI - Incident Intelligence",
+    page_title="SentinelAI SOC Command Center",
     page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# 2. Inject your exact global aesthetic CSS plus custom splash architecture
+apply_theme()
+
+
+# =========================
+# SPLASH (KEEP YOUR STYLE)
+# =========================
 st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
-
-/* Dynamic Splash Cover Layer */
-#splash-container {
-    position: fixed;
-    top: 0; left: 0; width: 100vw; height: 100vh;
-    background: #FAFAFA;
-    z-index: 9999999;
-    display: flex; flex-direction: column; justify-content: center; align-items: center;
-    animation: smoothExit 2.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
-    pointer-events: none;
-}
-.premium-loader {
-    width: 60px; height: 60px;
-    border: 2px solid #EAEAEA;
-    border-top: 2px solid #D4AF37;
-    border-radius: 50%;
-    animation: velocitySpin 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-@keyframes velocitySpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-@keyframes smoothExit { 0% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
-
-/* Global Light-Premium Elements Framework Override */
-.stApp {
-    background-color: #FAFAFA;
-    color: #111111;
-    font-family: 'Inter', sans-serif;
-}
-div[data-testid="stMetric"] {
-    background: white;
-    border-radius: 10px;
-    padding: 18px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    border: 1px solid #eee;
-}
-.card {
-    background: white;
-    padding: 24px;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-    border: 1px solid #eee;
-    margin-bottom: 20px;
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-    border-color: #D4AF37;
-}
-.card h4 { margin: 0 0 6px 0; color: #666666; font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
-.card h2 { margin: 0 0 4px 0; color: #111111; font-size: 34px; font-weight: 600; }
-.card small { color: #00B074; font-weight: 500; font-size: 13px; }
-
-/* Interactive Premium Menu Block Items */
-.nav-block-card {
-    background: #FFFFFF;
-    border: 1px solid #EAEAEA;
-    padding: 20px;
-    border-radius: 10px;
-    cursor: pointer;
-    text-align: center;
-    transition: all 0.2s ease;
-}
-.nav-block-card:hover {
-    background: #FAF6E8;
-    border-color: #D4AF37;
-}
-
-/* Button Theming Override */
-.stButton>button {
-    background-color: #FFFFFF; color: #111111;
-    border: 1px solid #EAEAEA; border-radius: 6px;
-    padding: 8px 18px; font-weight: 500; transition: all 0.25s ease;
-}
-.stButton>button:hover {
-    border-color: #D4AF37; background-color: #FAF6E8; color: #D4AF37;
-}
-</style>
-
 <div id="splash-container">
     <div class="premium-loader"></div>
-    <h2 style="font-family:'Inter'; font-weight:400; margin-top:24px; color:#111; letter-spacing:2px;">SENTINELAI</h2>
-    <p style="font-family:'Inter'; color:#888; font-size:12px; letter-spacing:0.5px;">SECURE INTELLIGENCE INTERFACE</p>
+    <h2 style="font-family:Inter; font-weight:400; margin-top:24px; color:#111; letter-spacing:2px;">
+        SENTINELAI
+    </h2>
+    <p style="font-family:Inter; color:#888; font-size:12px;">
+        SOC COMMAND OPERATIONS CENTER
+    </p>
 </div>
 """, unsafe_allow_html=True)
 
-# 3. Dynamic Application Directory Layout Allocation
-pages = {
-    "📊 Monitoring": [
-        st.Page("app_pages/dashboard.py", title="Dashboard Summary"),
-        st.Page("app_pages/threat_monitor.py", title="Threat Monitor"),
-    ],
-    "🧠 Intelligence": [
-        st.Page("app_pages/intelligence_center.py", title="CTI Engine"),
-        st.Page("app_pages/ai_reports.py", title="AI Reports Workspace"),
-    ],
-    "🧰 Forensics": [
-        st.Page("app_pages/investigation.py", title="Investigation Console"),
-        st.Page("app_pages/settings.py", title="Settings Panel"),
-    ]
-}
+time.sleep(1.2)
 
-nav = st.navigation(pages)
-nav.run()
+
+# =========================
+# HEADER SOC STATUS BAR
+# =========================
+st.title("🛡️ SentinelAI SOC Command Center")
+st.caption("Unified Cyber Defense & Attack Simulation Intelligence System")
+
+st.markdown("---")
+
+
+# =========================
+# LIVE SOC METRICS STRIP
+# =========================
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.metric("System Status", "OPERATIONAL", "Stable")
+
+with col2:
+    st.metric("Active Threats", "3", "+1")
+
+with col3:
+    st.metric("Attack Simulations", "Running", "Live Mode")
+
+with col4:
+    st.metric("AI Engine", "ONLINE", "Gemini Active")
+
+
+st.markdown("---")
+
+
+# =========================
+# SOC COMMAND DASHBOARD (CARD NAVIGATION - NO BUTTON STYLE)
+# =========================
+st.markdown("### 🧭 SOC Command Matrix")
+
+
+def soc_card(title, desc, page, color):
+    st.markdown(f"""
+    <a href="{page}" target="_self" style="text-decoration:none;">
+        <div class="card" style="cursor:pointer; border-left:4px solid {color};">
+            <h3 style="margin-bottom:6px;">{title}</h3>
+            <p style="color:#666; margin:0;">{desc}</p>
+        </div>
+    </a>
+    """, unsafe_allow_html=True)
+
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    soc_card(
+        "🛡️ Threat Monitor",
+        "Live security telemetry stream & incident tracking",
+        "app_pages/threat_monitor.py",
+        "#D4AF37"
+    )
+
+with col2:
+    soc_card(
+        "🟥 SOC War Room",
+        "Attack simulation & control center",
+        "app_pages/soc_war_room.py",
+        "#AA820A"
+    )
+
+with col3:
+    soc_card(
+        "🧠 Intelligence Engine",
+        "Threat correlation & attack story builder",
+        "app_pages/intelligence_center.py",
+        "#444444"
+    )
+
+
+col4, col5, col6 = st.columns(3)
+
+with col4:
+    soc_card(
+        "🤖 AI Reports",
+        "Gemini-powered incident analysis",
+        "app_pages/ai_reports.py",
+        "#777777"
+    )
+
+with col5:
+    soc_card(
+        "🧰 Forensics Console",
+        "Deep log investigation engine",
+        "app_pages/investigation.py",
+        "#555555"
+    )
+
+with col6:
+    soc_card(
+        "⚙️ System Config",
+        "SIEM + API configuration layer",
+        "app_pages/settings.py",
+        "#999999"
+    )
+
+
+st.markdown("---")
+
+
+# =========================
+# SOC OVERVIEW INSIGHT PANEL
+# =========================
+st.markdown("### 🧠 SOC Operational Overview")
+
+st.markdown("""
+<div class="card">
+    <h4>SentinelAI Operational Flow</h4>
+
+    <p style="color:#333;">
+    Attack Simulation → MCP Tooling → Splunk Pipeline → Anomaly Detection →
+    Intelligence Correlation → AI Incident Narrative
+    </p>
+
+    <hr>
+
+    <p style="color:#666;">
+    This system simulates a real-world Security Operations Center (SOC)
+    with full attack lifecycle visibility and AI-assisted analysis.
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+
+st.markdown("---")
+
+
+# =========================
+# FOOTER STATUS
+# =========================
+st.caption("SentinelAI SOC System v1.0 | Hackathon Intelligence Platform | Real-Time Cyber Simulation Engine")

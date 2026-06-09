@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from app_pages.ui.supabase_loader import get_anomalies
+from app_pages.ui_components.supabase_loader import get_anomalies
 from src.ai.analyzer import AIAnalyzer
 
 st.title("🔍 Tactical Threat Monitor")
