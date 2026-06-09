@@ -1,62 +1,57 @@
-import json
-from pathlib import Path
+from src.storage.supabase_client import supabase
 
 
 class MCPStore:
-    """
-    Stores MCP tool outputs in both:
-    - memory cache
-    - persistent JSON files
-    """
 
-    DATA_DIR = Path("data/mcp")
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-
-    _cache = {}
+    TABLE_NAME = "mcp_store"
 
     @staticmethod
-    def save(tool_name: str, data: dict):
+    def save(
+        tool_name,
+        data
+    ):
 
-        MCPStore._cache.setdefault(tool_name, [])
-        MCPStore._cache[tool_name].append(data)
+        payload = {
+            "tool_name": tool_name,
+            "payload": data
+        }
 
-        file_path = MCPStore.DATA_DIR / f"{tool_name}.json"
-
-        try:
-            if file_path.exists():
-                existing = json.loads(file_path.read_text())
-            else:
-                existing = []
-        except Exception:
-            existing = []
-
-        existing.append(data)
-
-        file_path.write_text(
-            json.dumps(existing, indent=4, default=str),
-            encoding="utf-8"
+        return (
+            supabase
+            .table(MCPStore.TABLE_NAME)
+            .insert(payload)
+            .execute()
         )
 
     @staticmethod
-    def get(tool_name: str):
-        return MCPStore._cache.get(tool_name, [])
+    def get(tool_name):
+
+        response = (
+            supabase
+            .table(MCPStore.TABLE_NAME)
+            .select("*")
+            .eq(
+                "tool_name",
+                tool_name
+            )
+            .execute()
+        )
+
+        return [
+            row["payload"]
+            for row in response.data
+        ]
 
     @staticmethod
-    def load_from_disk(tool_name: str):
-        file_path = MCPStore.DATA_DIR / f"{tool_name}.json"
+    def clear(tool_name):
 
-        if not file_path.exists():
-            return []
-
-        try:
-            return json.loads(file_path.read_text())
-        except Exception:
-            return []
-
-    @staticmethod
-    def clear(tool_name: str):
-        MCPStore._cache[tool_name] = []
-
-        file_path = MCPStore.DATA_DIR / f"{tool_name}.json"
-        if file_path.exists():
-            file_path.write_text("[]", encoding="utf-8")
+        (
+            supabase
+            .table(MCPStore.TABLE_NAME)
+            .delete()
+            .eq(
+                "tool_name",
+                tool_name
+            )
+            .execute()
+        )
