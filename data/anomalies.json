@@ -17,7 +17,7 @@
         "event_id": "19b7a27e-61d6-43b8-a4f5-b2b9bcfe30bd",
         "source": "System Error Logs",
         "anomaly_type": "VOLUME_SPIKE",
-        "severity": "HIGH",
+        "severity": "LOW",
         "score": 76,
         "attack_type": "BRUTE_FORCE_ATTACK",
         "description": "Automated anomaly detected in System Error Logs log stream.",

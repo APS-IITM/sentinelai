@@ -61,16 +61,16 @@ if "compiled_cti_report" not in st.session_state:
 # ==============================
 pages = {
     "📊 Monitoring": [
-        st.Page("app/pages/dashboard.py", title="Dashboard"),
-        st.Page("app/pages/threat_monitor.py", title="Threat Monitor"),
+        st.Page("app/dashboard.py", title="Dashboard"),
+        st.Page("app/threat_monitor.py", title="Threat Monitor"),
     ],
     "🧠 Intelligence": [
-        st.Page("app/pages/intelligence_center.py", title="CTI Engine"),
-        st.Page("app/pages/ai_reports.py", title="AI Reports"),
+        st.Page("app/intelligence_center.py", title="CTI Engine"),
+        st.Page("app/ai_reports.py", title="AI Reports"),
     ],
     "🧰 Forensics": [
-        st.Page("app/pages/investigation.py", title="Investigation Console"),
-        st.Page("app/pages/settings.py", title="Settings"),
+        st.Page("app/investigation.py", title="Investigation Console"),
+        st.Page("app/settings.py", title="Settings"),
     ]
 }
 
