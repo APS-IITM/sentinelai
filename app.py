@@ -1,4 +1,7 @@
 import streamlit as st
+import threading
+
+from src.devops.data_sync_manager import DataSyncManager
 
 # ==============================
 # CONFIG
@@ -9,6 +12,28 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# ==============================
+# BACKGROUND DATA SYNC STARTER
+# ==============================
+
+def start_data_sync():
+    manager = DataSyncManager(
+        repo_path=".",        # root of repo
+        interval_minutes=3    # 2–4 min safe batch window
+    )
+    manager.start()
+
+
+# 🔥 RUN ONLY ONCE PER SESSION
+if "sync_started" not in st.session_state:
+    threading.Thread(
+        target=start_data_sync,
+        daemon=True
+    ).start()
+
+    st.session_state.sync_started = True
+
 
 # ==============================
 # GLOBAL UI THEME
@@ -55,6 +80,7 @@ if "active_threat_profiles" not in st.session_state:
 
 if "compiled_cti_report" not in st.session_state:
     st.session_state.compiled_cti_report = None
+
 
 # ==============================
 # NAVIGATION (CLEAN)

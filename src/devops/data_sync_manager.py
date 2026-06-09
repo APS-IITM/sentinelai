@@ -8,98 +8,108 @@ from watchdog.events import FileSystemEventHandler
 
 class DataChangeHandler(FileSystemEventHandler):
 
-    def __init__(self, repo_path: str):
+    def __init__(self, repo_path: str, buffer):
         self.repo_path = Path(repo_path)
-        self.last_commit_time = 0
-        self.cooldown = 5  # seconds (prevents spam commits)
+        self.buffer = buffer
 
-    # Triggered on any file modification
     def on_modified(self, event):
+
         if event.is_directory:
             return
 
         if not event.src_path.endswith(".json"):
             return
 
-        now = time.time()
+        print(f"[DATA-SYNC] Detected change: {event.src_path}")
 
-        # debounce
-        if now - self.last_commit_time < self.cooldown:
-            return
-
-        self.last_commit_time = now
-
-        print(f"[DATA-SYNC] Change detected: {event.src_path}")
-        self.commit_and_push()
+        # Instead of committing immediately → buffer it
+        self.buffer["dirty"] = True
+        self.buffer["last_change"] = time.time()
 
 
+class DataSyncManager:
+
+    def __init__(self, repo_path: str, interval_minutes=3):
+        self.repo_path = Path(repo_path)
+        self.interval = interval_minutes * 60
+
+        self.buffer = {
+            "dirty": False,
+            "last_change": 0
+        }
+
+        self.observer = Observer()
+        self.stop_flag = False
+
+    # =========================
+    # GIT OPERATION (SAFE)
+    # =========================
     def commit_and_push(self):
 
         try:
-            # STEP 1: stage only data folder
-            subprocess.run(
-                ["git", "add", "data/"],
-                cwd=self.repo_path,
-                check=True
-            )
+            subprocess.run(["git", "add", "data/"], cwd=self.repo_path, check=True)
 
-            # STEP 2: commit
-            msg = f"auto-sync: update data store @ {time.strftime('%Y-%m-%d %H:%M:%S')}"
+            msg = f"auto-sync: data update @ {time.strftime('%Y-%m-%d %H:%M:%S')}"
+
             subprocess.run(
                 ["git", "commit", "-m", msg],
                 cwd=self.repo_path,
                 check=True
             )
 
-            # STEP 3: push
-            subprocess.run(
-                ["git", "push"],
-                cwd=self.repo_path,
-                check=True
-            )
+            subprocess.run(["git", "push"], cwd=self.repo_path, check=True)
 
-            print("[DATA-SYNC] ✅ Auto commit + push successful")
+            print("[DATA-SYNC] ✅ Commit successful")
 
         except subprocess.CalledProcessError as e:
-            print(f"[DATA-SYNC] ⚠️ Git operation skipped: {e}")
+            print(f"[DATA-SYNC] ⚠️ Git skipped: {e}")
 
+    # =========================
+    # BACKGROUND LOOP
+    # =========================
+    def _worker(self):
 
-class DataSyncManager:
+        while not self.stop_flag:
 
-    def __init__(self, repo_path: str):
-        self.repo_path = repo_path
-        self.observer = Observer()
+            time.sleep(self.interval)
 
+            if self.buffer["dirty"]:
+
+                print("[DATA-SYNC] ⏳ Processing buffered changes...")
+
+                self.commit_and_push()
+
+                self.buffer["dirty"] = False
+
+            else:
+                print("[DATA-SYNC] No changes detected in interval")
+
+    # =========================
+    # START SYSTEM
+    # =========================
     def start(self):
-        event_handler = DataChangeHandler(self.repo_path)
+
+        handler = DataChangeHandler(str(self.repo_path), self.buffer)
 
         self.observer.schedule(
-            event_handler,
-            path=str(Path(self.repo_path) / "data"),
+            handler,
+            path=str(self.repo_path / "data"),
             recursive=True
         )
 
         self.observer.start()
 
-        print("[DATA-SYNC] 🚀 Watching data/ folder for changes...")
+        print("[DATA-SYNC] 🚀 Watching started (batch mode enabled)")
+
+        thread = threading.Thread(target=self._worker, daemon=True)
+        thread.start()
 
         try:
             while True:
                 time.sleep(1)
         except KeyboardInterrupt:
-            print("[DATA-SYNC] Stopping watcher...")
+            print("[DATA-SYNC] Stopping...")
+            self.stop_flag = True
             self.observer.stop()
 
         self.observer.join()
-
-
-# ======================================================
-# RUN AS STANDALONE SERVICE
-# ======================================================
-if __name__ == "__main__":
-    import os
-
-    repo_root = os.getcwd()
-
-    manager = DataSyncManager(repo_root)
-    manager.start()
