@@ -6,7 +6,6 @@ from src.simulator.controller import AttackSimulator
 class AttackEngine:
 
     def __init__(self):
-
         self.simulator = AttackSimulator()
 
     def launch_attack(self, attack_type):
@@ -18,18 +17,19 @@ class AttackEngine:
             attack_type
         )
 
-        events = self.simulator.run_attack(
-            attack_type
-        )
+        events = self.simulator.run_attack(attack_type)
 
         AttackState.update(
             attack_id,
             len(events)
         )
 
+        # 🔥 MARK COMPLETED (IMPORTANT FIX)
+        AttackState.complete(attack_id)
+
         return {
             "attack_id": attack_id,
             "attack_type": attack_type,
             "events": len(events),
-            "status": "completed"
+            "status": "COMPLETED"
         }

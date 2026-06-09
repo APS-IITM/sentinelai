@@ -1,186 +1,142 @@
 import streamlit as st
 import time
+import random
 from datetime import datetime
 
 from src.simulator.engine import AttackEngine
-from src.streaming.refresh_manager import start_streaming
-from src.streaming.event_bus import EventBus
+from src.simulator.state import AttackState
 from app_pages.ui_components.supabase_loader import save_anomaly
+
 
 # =========================
 # PAGE CONFIG
 # =========================
-st.title("🟥 PRO SOC WAR ROOM")
-st.caption("Real-Time Cyber Defense Command Center | Attack Simulation + Intelligence Fusion")
+st.title("🟥 SOC WAR ROOM")
+st.caption("Live Attack Simulation + Real-Time Threat Command Center")
 st.markdown("---")
+
 
 engine = AttackEngine()
 
 
 # =========================
-# START SOC STREAM (AUTO PIPELINE)
+# ATTACK SEVERITY MAPPING (NEW)
 # =========================
-if "stream_started" not in st.session_state:
-    st.session_state.stream_started = False
+def random_severity():
+    return random.choice(["LOW", "MEDIUM", "HIGH", "CRITICAL"])
+
+
+def severity_color(sev):
+    return {
+        "LOW": "🟢",
+        "MEDIUM": "🟡",
+        "HIGH": "🟠",
+        "CRITICAL": "🔴"
+    }.get(sev, "⚪")
 
 
 # =========================
-# ATTACK CONTROL MATRIX (PRO CARDS)
+# ATTACK LAUNCH PANEL
 # =========================
-st.markdown("### ⚔️ Attack Control Matrix")
+st.subheader("⚔️ Attack Execution Panel")
 
-def attack_card(title, desc, color, attack_type):
+col1, col2 = st.columns(2)
 
-    st.markdown(f"""
-    <div class="card" style="border-left:4px solid {color};">
-        <h3>{title}</h3>
-        <p style="color:#666;">{desc}</p>
-    </div>
-    """, unsafe_allow_html=True)
 
-    if st.button(f"Execute {title}", key=attack_type):
+def launch_attack_ui(title, attack_type):
 
-        with st.spinner("Launching simulated attack..."):
+    if st.button(f"Launch {title}"):
+
+        with st.spinner("Executing attack simulation..."):
 
             result = engine.launch_attack(attack_type)
 
-            # Save anomaly for dashboard + intelligence
+            severity = random_severity()
+
             save_anomaly({
                 "source": "SOC_SIM",
                 "attack_type": attack_type,
-                "severity": "HIGH",
+                "severity": severity,
                 "data_points": result["events"],
                 "created_at": str(datetime.now())
             })
 
-            st.success(f"{title} completed → {result['events']} events generated")
+            st.success(
+                f"{title} → {result['events']} events | Severity: {severity}"
+            )
 
-
-col1, col2 = st.columns(2)
 
 with col1:
-    attack_card("Brute Force Attack", "Credential guessing simulation", "#D4AF37", "brute_force")
+    launch_attack_ui("Brute Force", "brute_force")
+    launch_attack_ui("DDoS Flood", "ddos")
 
 with col2:
-    attack_card("Port Scan Attack", "Network reconnaissance simulation", "#444444", "port_scan")
-
-col3, col4 = st.columns(2)
-
-with col3:
-    attack_card("DDoS Attack", "Traffic flood simulation", "#AA820A", "ddos")
-
-with col4:
-    attack_card("Error Storm", "System failure simulation", "#777777", "error_storm")
+    launch_attack_ui("Port Scan", "port_scan")
+    launch_attack_ui("Error Storm", "error_storm")
 
 
 st.markdown("---")
 
 
 # =========================
-# SOC STREAM CONTROL PANEL (PRO)
+# LIVE ATTACK STATE MONITOR
 # =========================
-st.markdown("### 📡 SOC Live Stream Engine")
+st.subheader("🧠 Active Attack Registry")
 
-colA, colB = st.columns(2)
+state = AttackState.get_state()
 
-with colA:
-    if st.button("▶ Start SOC Stream Engine"):
-        start_streaming()
-        st.session_state.stream_started = True
-        st.success("Live SOC streaming activated")
-
-with colB:
-    if st.button("⛔ Reset Event Stream"):
-        EventBus.clear()
-        st.warning("Event stream cleared")
-
-
-st.markdown("---")
-
-
-# =========================
-# LIVE SOC EVENT FEED (CORE FEATURE)
-# =========================
-st.markdown("### 🔴 Live SOC Event Feed")
-
-events = EventBus.get_latest(20)
-
-if not events:
-
-    st.info("No live events. Start SOC Stream Engine or launch an attack.")
-
+if not state:
+    st.info("No active attacks currently running.")
 else:
+    for attack_id, data in state.items():
 
-    for e in reversed(events):
+        status = data["status"]
 
-        if e["type"] == "ANOMALY":
-
-            st.error(f"""
-            🚨 ANOMALY DETECTED  
-            Payload: {e['payload']}  
-            """)
-
-        elif e["type"] == "ERROR":
-
-            st.warning(f"""
-            ⚠️ SYSTEM ERROR  
-            {e['payload']}
-            """)
-
-        else:
-
-            st.success("✅ Normal traffic observed")
-
-
-st.markdown("---")
-
-
-# =========================
-# INCIDENT TIMELINE VIEW (SOC STYLE)
-# =========================
-st.markdown("### ⏱️ Incident Timeline")
-
-if events:
-
-    for i, e in enumerate(events[-10:]):
+        icon = "🟢" if status == "running" else "🔴"
 
         st.markdown(f"""
         <div class="card">
-            <h4>Event #{i+1}</h4>
-            <p><b>Type:</b> {e['type']}</p>
-            <p><b>Time:</b> {datetime.fromtimestamp(e['timestamp']) if 'timestamp' in e else 'LIVE'}</p>
+            <h4>{icon} Attack ID: {attack_id}</h4>
+            <p><b>Type:</b> {data['type']}</p>
+            <p><b>Status:</b> {status}</p>
+            <p><b>Events Generated:</b> {data['events_generated']}</p>
         </div>
         """, unsafe_allow_html=True)
 
-else:
-    st.info("Timeline will populate when events are generated")
+
+st.markdown("---")
 
 
 # =========================
-# SOC PIPELINE VISUAL (PRO CONTEXT)
+# LIVE FEED SIMULATION (FIXED)
+# =========================
+st.subheader("📡 Live SOC Feed")
+
+feed_placeholder = st.empty()
+
+for i in range(5):
+
+    with feed_placeholder.container():
+
+        sev = random_severity()
+
+        st.markdown(f"""
+        ### {severity_color(sev)} Event Stream Update
+        - Severity: {sev}
+        - Timestamp: {datetime.now()}
+        - Status: Streaming SOC telemetry...
+        """)
+
+    time.sleep(1)
+
+
+# =========================
+# PIPELINE VIEW
 # =========================
 st.markdown("---")
 
-st.markdown("### 🧠 SOC Intelligence Pipeline")
-
 st.markdown("""
-<div class="card">
+### 🧬 SOC Pipeline Flow
 
-<b>Attack Lifecycle:</b><br>
-🟥 Attack Simulator → 🟧 MCP Tools → 🟨 Splunk Query Layer → 🟩 Anomaly Detection → 🟦 Intelligence Engine → 🤖 AI Analysis
-
-<hr>
-
-<b>Live Mode:</b> Streaming Security Operations Center<br>
-<b>Detection Type:</b> Behavioral + Statistical + ML Hybrid<br>
-<b>Purpose:</b> Cyber attack simulation + SOC training environment
-
-</div>
-""", unsafe_allow_html=True)
-
-
-# =========================
-# OPTIONAL AUTO REFRESH (SAFE VERSION)
-# =========================
-time.sleep(2)
-st.rerun()
+Attack Simulator → MCP Tools → Splunk → Anomaly Engine → Intelligence Engine → AI Layer
+""")
