@@ -1,21 +1,28 @@
+import numpy as np
+
 class AttackClassifier:
 
     @staticmethod
-    def classify(values):
-        if len(values) == 0:
-            return "UNKNOWN"
+    def classify(values: list) -> str:
+        """
+        Evaluates trend step changes over arrays to classify the anomaly signature.
+        """
+        if not values or len(values) < 3:
+            return "UNKNOWN_TRAFFIC"
 
-        avg = sum(values) / len(values)
-        peak = max(values)
+        arr = np.array(values, dtype=float)
+        diffs = np.diff(arr)
 
-        # FIXED: Evaluate absolute volume spikes first to lock down high-impact storms
-        if avg > 100 and peak < (avg * 2):
-            return "ERROR_STORM"
+        # Pattern A: Sudden massive volumetric jump
+        if diffs[-1] > np.median(arr) * 5:
+            return "BRUTE_FORCE"
 
-        if peak > avg * 3:
-            return "BRUTE_FORCE_ATTACK"
+        # Pattern B: Sequential increases over successive frames (Reconnaissance footprint)
+        if len(diffs) >= 3 and all(x > 0 for x in diffs[-3:]):
+            return "PORT_SCAN"
 
-        if peak > avg * 2:
-            return "NETWORK_SCAN"
+        # Pattern C: Persistent high saturation exceeding the initial baseline
+        if arr[-1] > np.mean(arr[:-3]) * 3:
+            return "DOS_ATTACK"
 
-        return "NORMAL_ACTIVITY"
+        return "VOLUME_SPIKE"

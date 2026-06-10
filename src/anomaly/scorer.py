@@ -1,23 +1,24 @@
 class RiskScorer:
 
     @staticmethod
-    def calculate(volume_score: int, anomaly_score: int):
-
-        # weighted fusion model
-        score = (volume_score * 0.6) + (anomaly_score * 0.4)
-
-        return min(int(score), 100)
+    def calculate(stat_score: float, ml_score: float) -> float:
+        """
+        Weights and clamps incoming detector data safely.
+        Balances volatile spikes with behavioral ML trends.
+        """
+        # Distribute weights evenly (Max 50 points per detector)
+        weighted_stat = min(stat_score, 50.0)
+        weighted_ml = min(ml_score, 50.0)
+        
+        return float(weighted_stat + weighted_ml)
 
     @staticmethod
-    def severity(score: int):
-
-        if score >= 85:
-            return "CRITICAL"
-
-        if score >= 70:
-            return "HIGH"
-
-        if score >= 50:
+    def severity(score: float) -> str:
+        """Standardized qualitative tiering for corporate incident routing."""
+        if score < 30:
+            return "LOW"
+        elif score < 60:
             return "MEDIUM"
-
-        return "LOW"
+        elif score < 85:
+            return "HIGH"
+        return "CRITICAL"
