@@ -152,29 +152,30 @@ st.markdown("""
 ### 🧬 SOC Pipeline Flow
 Attack Simulator → MCP Layer (Auth / Network / System / Security) → Splunk Queries → Anomaly Engine → Intelligence Engine → AI Analysis Layer
 """)
-
-st.header("CTI Pipeline Debugger")
-
-if st.button("Force Run CTI Test"):
-    from app_pages.ui_components.supabase_loader import get_anomalies
-    
-    # 1. Check data availability
-    test_events = get_anomalies()
-    st.write(f"Fetched {len(test_events)} anomalies from DB.")
-    
-    if not test_events:
-        st.error("Stop. No anomalies found in your Supabase table. Run your simulator first.")
-    else:
-        # 2. Track Engine Processing
-        try:
-            from src.intelligence.engine import IntelligenceEngine
-            engine = IntelligenceEngine()
-            
-            st.info("Running IntelligenceEngine.analyze()...")
-            report = engine.analyze(test_events)
-            
-            st.success("Analysis executed successfully!")
-            st.json(report)
-            
-        except Exception as err:
-            st.error(f"Pipeline crashed during execution: {str(err)}")
+# =========================
+# st.header("CTI Pipeline Debugger")
+#
+# if st.button("Force Run CTI Test"):
+#     from app_pages.ui_components.supabase_loader import get_anomalies
+#     
+#     # 1. Check data availability
+#     test_events = get_anomalies()
+#     st.write(f"Fetched {len(test_events)} anomalies from DB.")
+#     
+#     if not test_events:
+#         st.error("Stop. No anomalies found in your Supabase table. Run your simulator first.")
+#     else:
+#         # 2. Track Engine Processing
+#         try:
+#             from src.intelligence.engine import IntelligenceEngine
+#             engine = IntelligenceEngine()
+#             
+#             st.info("Running IntelligenceEngine.analyze()...")
+#             report = engine.analyze(test_events)
+#             
+#             st.success("Analysis executed successfully!")
+#             st.json(report)
+#             
+#         except Exception as err:
+#             st.error(f"Pipeline crashed during execution: {str(err)}")
+# =========================
