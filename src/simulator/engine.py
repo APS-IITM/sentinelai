@@ -3,7 +3,6 @@ import uuid
 from src.simulator.state import AttackState
 from src.simulator.controller import AttackSimulator
 
-from src.intelligence.engine import IntelligenceEngine
 from app_pages.ui_components.supabase_loader import save_intel_report
 
 
@@ -11,7 +10,7 @@ class AttackEngine:
 
     def __init__(self):
         self.simulator = AttackSimulator()
-        self.intel_engine = IntelligenceEngine()
+        
 
     def launch_attack(self, attack_type):
         attack_id = str(uuid.uuid4())[:8]
@@ -24,19 +23,13 @@ class AttackEngine:
         AttackState.update(attack_id, len(events))
         AttackState.complete(attack_id)
 
-        # INTELLIGENCE LAYER
-        report = self.intel_engine.analyze(events)
+        
 
-        # STORE INTELLIGENCE
-        if report:
-            # FIXED: Changed serialization mode to JSON strings to ensure 
-            # nested datetimes/UUIDs do not trigger a database write crash.
-            save_intel_report(report.model_dump(mode="json"))
+        
 
         return {
             "attack_id": attack_id,
             "attack_type": attack_type,
             "events": len(events),
             "status": "COMPLETED",
-            "intel_report": report.model_dump(mode="json") if report else None
         }
