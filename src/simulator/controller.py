@@ -5,25 +5,30 @@ from src.simulator.runner import AttackRunner
 class AttackSimulator:
 
     def __init__(self):
-
         self.runner = AttackRunner()
 
     def run_attack(self, attack_type):
 
-        if attack_type == "brute_force":
-            events = AttackScenarios.brute_force()
+        mapping = {
+            # AUTH
+            "brute_force": AttackScenarios.brute_force,
+            "credential_stuffing": AttackScenarios.credential_stuffing,
 
-        elif attack_type == "port_scan":
-            events = AttackScenarios.port_scan()
+            # SECURITY
+            "error_storm": AttackScenarios.error_storm,
+            "privilege_abuse": AttackScenarios.privilege_abuse,
 
-        elif attack_type == "ddos":
-            events = AttackScenarios.ddos()
+            # NETWORK
+            "port_scan": AttackScenarios.port_scan,
+            "ddos": AttackScenarios.ddos,
+            "lateral_movement": AttackScenarios.lateral_movement,
 
-        elif attack_type == "error_storm":
-            events = AttackScenarios.error_storm()
+            # SYSTEM
+            "cpu_spike": AttackScenarios.cpu_spike,
+            "service_crash": AttackScenarios.service_crash,
+        }
 
-        else:
-            events = []
+        events = mapping.get(attack_type, lambda: [])()
 
         self.runner.push(events, attack_type)
 
