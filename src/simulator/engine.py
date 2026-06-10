@@ -3,7 +3,7 @@ import uuid
 from src.simulator.state import AttackState
 from src.simulator.controller import AttackSimulator
 
-from app_pages.ui_components.supabase_loader import save_intel_report
+
 
 
 class AttackEngine:
