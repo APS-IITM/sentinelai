@@ -152,6 +152,7 @@ st.markdown("""
 ### 🧬 SOC Pipeline Flow
 Attack Simulator → MCP Layer (Auth / Network / System / Security) → Splunk Queries → Anomaly Engine → Intelligence Engine → AI Analysis Layer
 """)
+
 # =========================
 # st.header("CTI Pipeline Debugger")
 #
