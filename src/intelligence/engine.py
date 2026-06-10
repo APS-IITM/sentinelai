@@ -105,5 +105,4 @@ class IntelligenceEngine:
 
             reports_generated.append(report)
 
-        # ✅ FIX: Return ALL compiled tier incident tracking documents, not just index [0]
         return reports_generated
