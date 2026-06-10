@@ -3,16 +3,16 @@ from src.anomaly.scorer import RiskScorer
 from src.anomaly.classifier import AttackClassifier
 from src.anomaly.models import ThreatEvent
 from src.storage.anomaly_store import AnomalyStore
-
+from src.intelligence.engine import IntelligenceEngine
 
 class AnomalyAnalyzer:
 
     def __init__(self):
         self.ml = MLDetector()
+        self.intel_engine = IntelligenceEngine()
 
     def analyze_series(self, source: str, values: list):
-        # FIXED: Enforce a minimum window length of 10 elements 
-        # This gives both your Z-Score and Isolation Forest enough data points to compute baseline calculations
+        
         if not values or len(values) < 10:
             return None
 
@@ -32,13 +32,21 @@ class AnomalyAnalyzer:
             score=score,
             attack_type=AttackClassifier.classify(values),
             description=f"Automated anomaly detected in {source} log stream.",
-            recommendation="Investigate raw logs via Splunk queries and correlate source IP profiles.",
+            recommendations=["Investigate raw logs via Splunk queries and correlate source IP profiles."],
             data_points=int(values[-1])
         )
 
-        # Persist anomaly
+        # 1. Save raw anomaly to the database
         AnomalyStore.save(
             threat.model_dump(mode="json")
         )
+
+        # ⛓️ 2. THE PIPELINE LINK: Automatically hand off the threat event to the CTI engine!
+        # Wrapping it in a list container ensures your engine's iterator loop can process it instantly.
+        try:
+            self.intel_engine.analyze([threat])
+        except Exception as e:
+            # Prevent an analytical CTI breakdown from crashing your main logging service
+            print(f"⚠️ Intelligence Engine cascade failed: {str(e)}")
 
         return threat

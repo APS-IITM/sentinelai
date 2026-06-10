@@ -26,17 +26,14 @@ class IntelligenceEngine:
         if not events:
             return None
 
-        # =========================================================
-        # 🛠️ FIX: GROUP EVENTS BY SEVERITY TO PREVENT SWALLOWING
-        # =========================================================
-        # This ensures low, medium, and high get their own distinct processing loops
+       
         reports_generated = []
         
-        # Find all unique severities present in this simulation dump
+        
         unique_severities = set(str(self._get_val(e, "severity", "LOW")).upper() for e in events)
 
         for target_severity in unique_severities:
-            # Filter events belonging ONLY to this specific severity tier
+           
             severity_events = [
                 e for e in events 
                 if str(self._get_val(e, "severity", "LOW")).upper() == target_severity
@@ -45,7 +42,6 @@ class IntelligenceEngine:
             if not severity_events:
                 continue
 
-            # Run the correlation matrix against just this tier's events
             incident_type, confidence = EventCorrelator.correlate(severity_events)
 
             timeline = TimelineBuilder.build(severity_events)
