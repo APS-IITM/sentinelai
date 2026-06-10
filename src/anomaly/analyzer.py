@@ -1,5 +1,5 @@
 import streamlit as st
-from loguru import logger  # Excellent for structured, color-coded tracebacks
+from loguru import logger  
 
 from src.anomaly.detectors import StatisticalDetector, MLDetector
 from src.anomaly.scorer import RiskScorer
