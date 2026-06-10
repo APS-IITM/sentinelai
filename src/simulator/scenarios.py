@@ -1,7 +1,7 @@
 import random
 import uuid
 from datetime import datetime
-from src.core.event_schema import SOCEvent
+
 
 
 class AttackScenarios:
@@ -20,19 +20,7 @@ class AttackScenarios:
                 weights=[0.4, 0.3, 0.2, 0.1]
             )[0]
 
-            # FIXED: Enriched model generation to protect Intelligence metrics
-            wrapped.append(
-                SOCEvent(
-                    event_id=str(uuid.uuid4()),
-                    source=source,
-                    attack_type=attack_type,
-                    severity=severity,
-                    score=score_map[severity] + random.randint(-5, 5),
-                    description=f"Simulated {attack_type} event activity targeted at {source}.",
-                    raw_event=e,
-                    timestamp=datetime.utcnow()
-                )
-            )
+            
 
         return wrapped
 
