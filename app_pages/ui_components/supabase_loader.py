@@ -8,6 +8,14 @@ from src.storage.supabase_client import supabase
 load_dotenv()
 
 # ==========================================
+# ⛓️ INJECT CLIENT INTO THE BASE CLASS DIRECTLY
+# ==========================================
+# Because BaseStore does not accept arguments in __init__, 
+# we bind the client directly to the base class so all children inherit it.
+BaseStore.client = supabase
+
+
+# ==========================================
 # 🏛️ REPOSITORY MATRIX (OOP LAYER)
 # ==========================================
 
@@ -24,12 +32,11 @@ class MCPStore(BaseStore):
     TABLE_NAME = "mcp_store"
 
 
-# Pass the imported 'supabase' client instance to your store wrappers 
-# (Assuming BaseStore takes a client wrapper instance during initialization)
-anomaly_store = AnomalyStore(supabase)
-intel_store = IntelligenceStore(supabase)
-ai_store = AIReportStore(supabase)
-mcp_store = MCPStore(supabase)
+# FIXED: Reverted to empty constructors since BaseStore takes no arguments
+anomaly_store = AnomalyStore()
+intel_store = IntelligenceStore()
+ai_store = AIReportStore()
+mcp_store = MCPStore()
 
 
 # ==========================================
@@ -65,7 +72,7 @@ def get_mcp(tool_name):
     if not MCPStore.TABLE_NAME:
         raise ValueError("TABLE_NAME not defined")
     
-    # Replaced local 'client' variable with the explicitly imported 'supabase' client engine
+    # Explicitly utilizes the imported central supabase engine asset
     response = supabase.table(MCPStore.TABLE_NAME).select("*").eq("tool_name", tool_name).execute()
     return response.data or []
 
