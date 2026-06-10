@@ -8,7 +8,7 @@ class StoryGenerator:
 
     @staticmethod
     def generate(events, incident_type):
-        # FIXED: Use safe dictionary parsing for narrative generation loops
+        
         sources = {
             str(StoryGenerator._get_val(e, "source", "UNKNOWN"))
             for e in events

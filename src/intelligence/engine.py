@@ -26,45 +26,56 @@ class IntelligenceEngine:
         if not events:
             return None
 
-        incident_type, confidence = EventCorrelator.correlate(events)
+        # =========================================================
+        # 🛠️ FIX: GROUP EVENTS BY SEVERITY TO PREVENT SWALLOWING
+        # =========================================================
+        # This ensures low, medium, and high get their own distinct processing loops
+        reports_generated = []
+        
+        # Find all unique severities present in this simulation dump
+        unique_severities = set(str(self._get_val(e, "severity", "LOW")).upper() for e in events)
 
-        # FIXED: Safeguarded extraction logic to accept both db dict rows and model objects safely
-        severity = max(
-            (str(self._get_val(e, "severity", "LOW")) for e in events),
-            key=lambda x: self.SEVERITY_WEIGHTS.get(x.upper(), 0),
-            default="LOW"
-        )
+        for target_severity in unique_severities:
+            # Filter events belonging ONLY to this specific severity tier
+            severity_events = [
+                e for e in events 
+                if str(self._get_val(e, "severity", "LOW")).upper() == target_severity
+            ]
+            
+            if not severity_events:
+                continue
 
-        timeline = TimelineBuilder.build(events)
-        mitre = []
+            # Run the correlation matrix against just this tier's events
+            incident_type, confidence = EventCorrelator.correlate(severity_events)
 
-        for event in events:
-            # FIXED: Safe retrieval for mapping
-            attack_type = self._get_val(event, "attack_type", "UNKNOWN")
-            mitre.extend(
-                MitreMapper.map_attack(attack_type)
+            timeline = TimelineBuilder.build(severity_events)
+            mitre = []
+
+            for event in severity_events:
+                attack_type = self._get_val(event, "attack_type", "UNKNOWN")
+                mitre.extend(MitreMapper.map_attack(attack_type))
+
+            story = StoryGenerator.generate(severity_events, incident_type)
+
+            report = IntelligenceReport(
+                incident_type=incident_type,
+                severity=target_severity, # Stamped correctly (LOW, MEDIUM, HIGH, or CRITICAL)
+                attack_story=story,
+                timeline=timeline,
+                mitre_techniques=list(set(mitre)),
+                recommendations=[
+                    "Review affected systems",
+                    "Validate suspicious accounts",
+                    "Investigate source IPs",
+                    "Increase monitoring",
+                    "Review firewall rules"
+                ],
+                event_count=len(severity_events)
             )
 
-        story = StoryGenerator.generate(events, incident_type)
+            # Save the individual tier report to your Supabase layer
+            IntelligenceStore.save(report.model_dump(mode="json"))
+            reports_generated.append(report)
 
-        report = IntelligenceReport(
-            incident_type=incident_type,
-            severity=severity,
-            attack_story=story,
-            timeline=timeline,
-            mitre_techniques=list(set(mitre)),
-            recommendations=[
-                "Review affected systems",
-                "Validate suspicious accounts",
-                "Investigate source IPs",
-                "Increase monitoring",
-                "Review firewall rules"
-            ],
-            event_count=len(events)
-        )
-
-        IntelligenceStore.save(
-            report.model_dump(mode="json")
-        )
-
-        return report
+        # Return the last generated report or a list depending on your frontend needs
+        return reports_generated[0] if reports_generated else None
