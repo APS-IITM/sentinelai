@@ -72,7 +72,7 @@ st.markdown("---")
 
 
 # ==========================================
-# 📄 PAGINATION ENGINE (MAX 5 ENTRIES / PAGE)
+# 📄 PAGINATION ENGINE 
 # ==========================================
 records_to_render = filtered_df.to_dict(orient="records")
 total_records = len(records_to_render)
