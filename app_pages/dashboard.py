@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from collections import Counter
+import random 
 
 from app_pages.ui_components.supabase_loader import (
     get_anomalies,
@@ -26,22 +26,19 @@ df = pd.DataFrame(anomalies) if anomalies else pd.DataFrame()
 
 
 # =========================
-# NORMALIZATION (IMPORTANT)
+# NORMALIZATION
 # =========================
 if not df.empty:
-
     if "severity" not in df.columns:
         df["severity"] = "LOW"
-
     if "attack_type" not in df.columns:
         df["attack_type"] = "UNKNOWN"
-
     if "source" not in df.columns:
         df["source"] = "SIMULATOR"
 
 
 # =========================
-# METRICS STRIP (REAL SOC VIEW)
+# METRICS STRIP
 # =========================
 col1, col2, col3, col4 = st.columns(4)
 
@@ -54,7 +51,6 @@ col3.metric("Intel Reports", len(intel_reports) if intel_reports else 0)
 
 attack_types = df["attack_type"].nunique() if not df.empty else 0
 col4.metric("Attack Vectors Active", attack_types)
-
 
 st.markdown("---")
 
@@ -72,21 +68,16 @@ else:
         use_container_width=True
     )
 
-
 st.markdown("---")
 
 
 # =========================
-# 📊 SOC ANALYTICS ENGINE (CORE UPGRADE)
+# 📊 SOC ANALYTICS ENGINE
 # =========================
-
 if not df.empty:
-
     st.subheader("📊 SOC Analytics Overview")
 
-    # =========================
     # PIE: Severity Distribution
-    # =========================
     sev = df["severity"].value_counts().reset_index()
     sev.columns = ["severity", "count"]
 
@@ -99,10 +90,7 @@ if not df.empty:
     )
     st.plotly_chart(fig_pie, use_container_width=True)
 
-
-    # =========================
     # BAR: Attack Type Distribution
-    # =========================
     atk = df["attack_type"].value_counts().reset_index()
     atk.columns = ["attack_type", "count"]
 
@@ -116,12 +104,8 @@ if not df.empty:
     )
     st.plotly_chart(fig_bar, use_container_width=True)
 
-
-    # =========================
     # LINE: Incident Trend
-    # =========================
     if "created_at" in df.columns:
-
         df["created_at"] = pd.to_datetime(df["created_at"], errors="coerce")
         trend_df = df.dropna(subset=["created_at"])
 
@@ -135,38 +119,36 @@ if not df.empty:
             markers=True,
             title="Incident Trend Timeline"
         )
-
         st.plotly_chart(fig_line, use_container_width=True)
 
 
 # =========================
-# INTELLIGENCE SNAPSHOT
+# INTELLIGENCE SNAPSHOT (FIXED: RANDOM 4 SELECT MAX)
 # =========================
 st.subheader("🧠 Intelligence Snapshot")
 
 if intel_reports:
+    # Safe range check sample selection
+    sample_size = min(len(intel_reports), 4)
+    sampled_snapshots = random.sample(intel_reports, sample_size)
 
-    for r in intel_reports[:5]:
-
+    for r in sampled_snapshots:
         st.markdown(f"""
-        <div class="card">
+        <div class="card" style="margin-bottom: 12px;">
             <h4>Incident: {r.get('incident_type', 'UNKNOWN')}</h4>
             <p><b>Severity:</b> {r.get('severity', 'N/A')}</p>
             <p style="color:#555;">{r.get('attack_story', 'No narrative available')}</p>
         </div>
         """, unsafe_allow_html=True)
-
 else:
     st.info("No intelligence reports available.")
 
 
 # =========================
-# SOC PIPELINE VIEW (KEEP THIS)
+# SOC PIPELINE VIEW
 # =========================
 st.markdown("---")
-
 st.markdown("""
 ### 🧬 SOC Pipeline Flow
-
 Attack Simulator → MCP Layer (Auth / Network / System / Security) → Splunk Queries → Anomaly Engine → Intelligence Engine → AI Analysis Layer
 """)

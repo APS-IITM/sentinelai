@@ -69,9 +69,12 @@ class BaseStore:
                 "TABLE_NAME not defined"
             )
 
-        supabase.table(
-            cls.TABLE_NAME
-        ).delete().neq(
-            "id",
-            0
-        ).execute()
+        # FIXED: Wipes rows safely using a general null check 
+        # This prevents Postgres type errors for UUID schemas
+        return (
+            supabase
+            .table(cls.TABLE_NAME)
+            .delete()
+            .not_.is_("id", "null")
+            .execute()
+        )

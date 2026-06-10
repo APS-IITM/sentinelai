@@ -8,23 +8,14 @@ from src.simulator.state import AttackState
 from app_pages.ui_components.supabase_loader import save_anomaly
 
 
-# =========================
-# PAGE CONFIG
-# =========================
 st.title("🟥 SOC WAR ROOM")
 st.caption("Live Attack Simulation + Real-Time Threat Command Center")
 st.markdown("---")
 
-
 engine = AttackEngine()
 
-
-# =========================
-# ATTACK SEVERITY MAPPING (NEW)
-# =========================
 def random_severity():
     return random.choice(["LOW", "MEDIUM", "HIGH", "CRITICAL"])
-
 
 def severity_color(sev):
     return {
@@ -34,23 +25,13 @@ def severity_color(sev):
         "CRITICAL": "🔴"
     }.get(sev, "⚪")
 
-
-# =========================
-# ATTACK LAUNCH PANEL
-# =========================
 st.subheader("⚔️ Attack Execution Panel")
-
 col1, col2 = st.columns(2)
 
-
 def launch_attack_ui(title, attack_type):
-
     if st.button(f"Launch {title}"):
-
         with st.spinner("Executing attack simulation..."):
-
             result = engine.launch_attack(attack_type)
-
             severity = random_severity()
 
             save_anomaly({
@@ -61,10 +42,7 @@ def launch_attack_ui(title, attack_type):
                 "created_at": str(datetime.now())
             })
 
-            st.success(
-                f"{title} → {result['events']} events | Severity: {severity}"
-            )
-
+            st.success(f"{title} → {result['events']} events | Severity: {severity}")
 
 with col1:
     launch_attack_ui("Brute Force", "brute_force")
@@ -74,24 +52,16 @@ with col2:
     launch_attack_ui("Port Scan", "port_scan")
     launch_attack_ui("Error Storm", "error_storm")
 
-
 st.markdown("---")
 
-
-# =========================
-# LIVE ATTACK STATE MONITOR
-# =========================
 st.subheader("🧠 Active Attack Registry")
-
 state = AttackState.get_state()
 
 if not state:
     st.info("No active attacks currently running.")
 else:
     for attack_id, data in state.items():
-
         status = data["status"]
-
         icon = "🟢" if status == "running" else "🔴"
 
         st.markdown(f"""
@@ -103,40 +73,20 @@ else:
         </div>
         """, unsafe_allow_html=True)
 
-
 st.markdown("---")
 
+# FIXED: Static telemetry snapshot rendering removes UI thread blocking issues
+st.subheader("📡 Live SOC Feed Snapshot")
+sev = random_severity()
+st.markdown(f"""
+### {severity_color(sev)} Event Stream Update
+- Severity: {sev}
+- Timestamp: {datetime.now()}
+- Status: Active telemetry capture pipeline synchronized...
+""")
 
-# =========================
-# LIVE FEED SIMULATION (FIXED)
-# =========================
-st.subheader("📡 Live SOC Feed")
-
-feed_placeholder = st.empty()
-
-for i in range(5):
-
-    with feed_placeholder.container():
-
-        sev = random_severity()
-
-        st.markdown(f"""
-        ### {severity_color(sev)} Event Stream Update
-        - Severity: {sev}
-        - Timestamp: {datetime.now()}
-        - Status: Streaming SOC telemetry...
-        """)
-
-    time.sleep(1)
-
-
-# =========================
-# PIPELINE VIEW
-# =========================
 st.markdown("---")
-
 st.markdown("""
 ### 🧬 SOC Pipeline Flow
-
 Attack Simulator → MCP Tools → Splunk → Anomaly Engine → Intelligence Engine → AI Layer
 """)

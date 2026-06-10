@@ -1,18 +1,21 @@
 class StoryGenerator:
 
     @staticmethod
-    def generate(
-        events,
-        incident_type
-    ):
+    def _get_val(obj, key, default=None):
+        if isinstance(obj, dict):
+            return obj.get(key, default)
+        return getattr(obj, key, default)
 
+    @staticmethod
+    def generate(events, incident_type):
+        # FIXED: Use safe dictionary parsing for narrative generation loops
         sources = {
-            e.source
+            str(StoryGenerator._get_val(e, "source", "UNKNOWN"))
             for e in events
         }
 
         attacks = [
-            e.attack_type
+            str(StoryGenerator._get_val(e, "attack_type", "UNKNOWN"))
             for e in events
         ]
 

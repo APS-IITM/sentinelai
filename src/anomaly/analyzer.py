@@ -1,8 +1,4 @@
-from src.anomaly.detectors import (
-    StatisticalDetector,
-    MLDetector
-)
-
+from src.anomaly.detectors import StatisticalDetector, MLDetector
 from src.anomaly.scorer import RiskScorer
 from src.anomaly.classifier import AttackClassifier
 from src.anomaly.models import ThreatEvent
@@ -14,31 +10,17 @@ class AnomalyAnalyzer:
     def __init__(self):
         self.ml = MLDetector()
 
-    def analyze_series(
-        self,
-        source: str,
-        values: list
-    ):
-
-        if not values or len(values) < 2:
+    def analyze_series(self, source: str, values: list):
+        # FIXED: Enforce a minimum window length of 10 elements 
+        # This gives both your Z-Score and Isolation Forest enough data points to compute baseline calculations
+        if not values or len(values) < 10:
             return None
 
-        stat_flag, stat_score = (
-            StatisticalDetector.detect_spike(values)
-        )
+        stat_flag, stat_score = StatisticalDetector.detect_spike(values)
+        ml_flag, ml_score = self.ml.detect(values)
 
-        ml_flag, ml_score = (
-            self.ml.detect(values)
-        )
-
-        score = RiskScorer.calculate(
-            stat_score,
-            ml_score
-        )
-
-        severity = RiskScorer.severity(
-            score
-        )
+        score = RiskScorer.calculate(stat_score, ml_score)
+        severity = RiskScorer.severity(score)
 
         if not stat_flag and not ml_flag:
             return None

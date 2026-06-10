@@ -24,7 +24,7 @@ def connect():
 
 def run_search(service, query, timeout=30):
     """
-    Execute SPL query and return structured results.
+    Execute SPL query and return structured results with metadata stripping.
     """
 
     job = service.jobs.create(query)
@@ -42,9 +42,14 @@ def run_search(service, query, timeout=30):
 
         output = []
 
+        # Internal Splunk metadata fields to strip out for cleaner down-stream processing
+        internal_metadata = {'_cd', '_bkt', '_si', '_serial', '_indextime'}
+
         for item in reader:
             if isinstance(item, dict):
-                output.append(item)
+                # Strip internal metadata fields to prevent LLM token bloating
+                cleaned_item = {k: v for k, v in item.items() if k not in internal_metadata}
+                output.append(cleaned_item)
 
         return {
             "status": "success",

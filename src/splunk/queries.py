@@ -5,9 +5,10 @@ class SplunkQueries:
     # ==========================
     @staticmethod
     def get_auth_logs(limit=20, earliest="-24h"):
+        # Shifted to look at enterprise security logs instead of just internal Splunk logins
         return f"""
-        search index=_internal earliest={earliest} ("login" OR "authentication")
-        | stats count by user, host
+        search (index=security OR index=os) ("login" OR "authentication" OR "failed")
+        | stats count by user, src_ip, action
         | sort -count
         | head {limit}
         """
@@ -15,7 +16,7 @@ class SplunkQueries:
     @staticmethod
     def login_trend():
         return """
-        search index=_internal earliest=-24h "login"
+        search (index=security OR index=os) ("login" OR "authentication")
         | bin _time span=5m
         | stats count by _time
         | sort _time
@@ -43,7 +44,7 @@ class SplunkQueries:
         """
 
     # ==========================
-    # SYSTEM
+    # SYSTEM & LOG SEARCH
     # ==========================
     @staticmethod
     def get_system_logs(limit=20, earliest="-24h"):
@@ -54,9 +55,26 @@ class SplunkQueries:
         | head {limit}
         """
 
+    @staticmethod
+    def search_logs(keyword, limit=20):
+        """FIXED: Added missing generic search scanner called by SystemTools"""
+        return f"""
+        search (index=security OR index=main) "{keyword}" earliest=-24h
+        | head {limit}
+        """
+
     # ==========================
     # NETWORK
     # ==========================
+    @staticmethod
+    def get_network_logs(limit=20):
+        """FIXED: Added missing network log getter called by NetworkTools"""
+        return f"""
+        search index=network earliest=-24h
+        | table _time, SRC, DST, PORT, ACTION
+        | head {limit}
+        """
+
     @staticmethod
     def network_trend():
         return """

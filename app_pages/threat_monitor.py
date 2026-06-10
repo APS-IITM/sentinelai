@@ -26,7 +26,10 @@ if 'id' in df.columns:
     selected_target = st.selectbox("Pick Threat Ref Record ID for targeted diagnosis", df['id'].tolist())
     
     if st.button("Generate On-Demand Forensic Audit"):
-        target_series = df[df['id'] == selected_target].iloc[0]
+        # FIXED: Cast the row extraction into a standard dictionary object 
+        # This prevents Pandas series index mismatch errors
+        target_row = df[df['id'] == selected_target].iloc[0]
+        target_series = target_row.to_dict()
         
         class EventDataWrapper:
             def __init__(self, item):

@@ -15,11 +15,7 @@ class AIAnalyzer:
     def __init__(self):
         pass
 
-    # ======================================================
-    # 📦 INTERNAL DATA LOADER
-    # ======================================================
     def _load_data(self, source_type: str):
-
         if source_type == "anomaly":
             return AnomalyStore.get_all()
 
@@ -34,11 +30,7 @@ class AIAnalyzer:
 
         return MCPStore.get(source_type)
 
-    # ======================================================
-    # 📊 BATCH SOC REPORT GENERATION (UNCHANGED CORE LOGIC)
-    # ======================================================
     def generate_report(self, source_type: str = "all"):
-
         telemetry = self._load_data(source_type)
 
         if not telemetry:
@@ -46,19 +38,25 @@ class AIAnalyzer:
 
         highest_severity = "LOW"
 
+        # FIXED: Extract data correctly even if structural mode is set to "all" dict layout
+        items_to_check = []
         if source_type == "anomaly":
+            items_to_check = telemetry
+        elif source_type == "all" and isinstance(telemetry, dict):
+            items_to_check = telemetry.get("anomalies", [])
 
-            severities = [
-                item.get("severity", "LOW")
-                for item in telemetry
-            ]
+        severities = [
+            item.get("severity", "LOW")
+            for item in items_to_check
+            if isinstance(item, dict)
+        ]
 
-            if "CRITICAL" in severities:
-                highest_severity = "CRITICAL"
-            elif "HIGH" in severities:
-                highest_severity = "HIGH"
-            elif "MEDIUM" in severities:
-                highest_severity = "MEDIUM"
+        if "CRITICAL" in severities:
+            highest_severity = "CRITICAL"
+        elif "HIGH" in severities:
+            highest_severity = "HIGH"
+        elif "MEDIUM" in severities:
+            highest_severity = "MEDIUM"
 
         prompt = f"""
 {SYSTEM_PROMPT}
@@ -101,18 +99,7 @@ Generate a complete SOC report.
         except Exception as e:
             raise RuntimeError(f"Gemini analysis failed: {e}")
 
-    # ======================================================
-    # ⚡ FIXED: REAL-TIME SINGLE EVENT ANALYSIS (MISSING BEFORE)
-    # ======================================================
     def analyze_event(self, event):
-        """
-        FIX: This was missing and caused your crash.
-        Used by:
-        - Streamlit UI
-        - Attack Simulator
-        - Intelligence Engine
-        """
-
         try:
             prompt = f"""
 {SYSTEM_PROMPT}

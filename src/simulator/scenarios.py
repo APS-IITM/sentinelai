@@ -1,148 +1,69 @@
 import random
+import uuid
+from datetime import datetime
+from src.core.event_schema import SOCEvent
 
 
 class AttackScenarios:
 
-    SEVERITY = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
-
-    # =========================
-    # WRAPPER 
-    # =========================
     @staticmethod
-    def _wrap(events, domain):
+    def _wrap(events, attack_type, source):
+        severity_levels = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+        wrapped = []
+
+        # Scoring weights to pass down realistic metrics
+        score_map = {"LOW": 20, "MEDIUM": 55, "HIGH": 75, "CRITICAL": 95}
+
         for e in events:
-            e["severity"] = random.choices(
-                AttackScenarios.SEVERITY,
-                weights=[0.35, 0.30, 0.25, 0.10]
+            severity = random.choices(
+                severity_levels,
+                weights=[0.4, 0.3, 0.2, 0.1]
             )[0]
 
-            e["domain"] = domain
+            # FIXED: Enriched model generation to protect Intelligence metrics
+            wrapped.append(
+                SOCEvent(
+                    event_id=str(uuid.uuid4()),
+                    source=source,
+                    attack_type=attack_type,
+                    severity=severity,
+                    score=score_map[severity] + random.randint(-5, 5),
+                    description=f"Simulated {attack_type} event activity targeted at {source}.",
+                    raw_event=e,
+                    timestamp=datetime.utcnow()
+                )
+            )
 
-        return events
+        return wrapped
 
-
-    # =========================
-    # AUTH ATTACKS
-    # =========================
     @staticmethod
     def brute_force():
         events = [
-            {
-                "event": "login_failed",
-                "user": "admin",
-                "ip": f"192.168.1.{random.randint(1,255)}"
-            }
-            for _ in range(random.randint(30, 80))
-        ]
-        return AttackScenarios._wrap(events, "AUTH")
-
-
-    @staticmethod
-    def credential_stuffing():
-        events = [
-            {
-                "event": "login_attempt",
-                "user": f"user{random.randint(1,1000)}",
-                "ip": f"10.0.0.{random.randint(1,255)}"
-            }
-            for _ in range(random.randint(40, 100))
-        ]
-        return AttackScenarios._wrap(events, "AUTH")
-
-
-    # =========================
-    # SECURITY ATTACKS
-    # =========================
-    @staticmethod
-    def error_storm():
-        events = [
-            {
-                "event": "error",
-                "service": "auth",
-                "code": 500
-            }
-            for _ in range(random.randint(50, 120))
-        ]
-        return AttackScenarios._wrap(events, "SECURITY")
-
-
-    @staticmethod
-    def privilege_abuse():
-        events = [
-            {
-                "event": "unauthorized_access",
-                "user": "root",
-                "action": "escalation_attempt"
-            }
+            {"event": "login_failed", "user": "admin", "ip": "192.168.1.10"}
             for _ in range(random.randint(20, 60))
         ]
-        return AttackScenarios._wrap(events, "SECURITY")
+        return AttackScenarios._wrap(events, "BRUTE_FORCE_ATTACK", "AUTH")
 
-
-    # =========================
-    # NETWORK ATTACKS
-    # =========================
     @staticmethod
     def port_scan():
         events = [
-            {
-                "event": "connection_attempt",
-                "ip": "10.0.0.5",
-                "port": port
-            }
-            for port in range(20, 120)
+            {"event": "connection_attempt", "ip": "10.0.0.5", "port": p}
+            for p in range(20, 100)
         ]
-        return AttackScenarios._wrap(events, "NETWORK")
-
+        return AttackScenarios._wrap(events, "NETWORK_SCAN", "NETWORK")
 
     @staticmethod
     def ddos():
         events = [
-            {
-                "event": "request",
-                "ip": f"10.0.0.{random.randint(1,255)}",
-                "size": random.randint(100,1500)
-            }
-            for _ in range(300)
+            {"event": "request", "ip": f"10.0.0.{random.randint(1,255)}", "size": random.randint(100,1000)}
+            for _ in range(200)
         ]
-        return AttackScenarios._wrap(events, "NETWORK")
-
+        return AttackScenarios._wrap(events, "DDOS_ATTACK", "NETWORK")
 
     @staticmethod
-    def lateral_movement():
+    def error_storm():
         events = [
-            {
-                "event": "internal_access",
-                "source": f"host-{random.randint(1,50)}",
-                "target": f"host-{random.randint(51,100)}"
-            }
-            for _ in range(random.randint(20, 70))
+            {"event": "error", "service": "auth", "code": 500}
+            for _ in range(100)
         ]
-        return AttackScenarios._wrap(events, "NETWORK")
-
-
-    # =========================
-    # SYSTEM ATTACKS
-    # =========================
-    @staticmethod
-    def cpu_spike():
-        events = [
-            {
-                "event": "cpu_spike",
-                "usage": random.randint(80, 100)
-            }
-            for _ in range(random.randint(20, 50))
-        ]
-        return AttackScenarios._wrap(events, "SYSTEM")
-
-
-    @staticmethod
-    def service_crash():
-        events = [
-            {
-                "event": "service_down",
-                "service": "api-gateway"
-            }
-            for _ in range(random.randint(10, 40))
-        ]
-        return AttackScenarios._wrap(events, "SYSTEM")
+        return AttackScenarios._wrap(events, "ERROR_STORM", "SYSTEM")

@@ -8,28 +8,26 @@ class AttackSimulator:
         self.runner = AttackRunner()
 
     def run_attack(self, attack_type):
+        # FIXED: Added string normalization step to prevent route drops
+        normalized_type = str(attack_type).lower().strip()
 
-        mapping = {
-            # AUTH
-            "brute_force": AttackScenarios.brute_force,
-            "credential_stuffing": AttackScenarios.credential_stuffing,
+        if normalized_type in ["brute_force", "brute_force_attack"]:
+            events = AttackScenarios.brute_force()
 
-            # SECURITY
-            "error_storm": AttackScenarios.error_storm,
-            "privilege_abuse": AttackScenarios.privilege_abuse,
+        elif normalized_type in ["port_scan", "network_scan"]:
+            events = AttackScenarios.port_scan()
 
-            # NETWORK
-            "port_scan": AttackScenarios.port_scan,
-            "ddos": AttackScenarios.ddos,
-            "lateral_movement": AttackScenarios.lateral_movement,
+        elif normalized_type in ["ddos", "ddos_attack"]:
+            events = AttackScenarios.ddos()
 
-            # SYSTEM
-            "cpu_spike": AttackScenarios.cpu_spike,
-            "service_crash": AttackScenarios.service_crash,
-        }
+        elif normalized_type in ["error_storm"]:
+            events = AttackScenarios.error_storm()
 
-        events = mapping.get(attack_type, lambda: [])()
+        else:
+            events = []
 
-        self.runner.push(events, attack_type)
+        # log stream
+        if events:
+            self.runner.push(events, attack_type)
 
         return events

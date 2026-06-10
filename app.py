@@ -18,15 +18,12 @@ apply_theme()
 
 
 # =========================
-# SPLASH CONTROL (IMPORTANT FIX)
+# SPLASH CONTROL (FIXED: NO RERUN CRASH)
 # =========================
 if "splash_done" not in st.session_state:
-
     show_splash()
-
     st.session_state.splash_done = True
-
-    st.rerun()
+    # Let the script continue execution into st.navigation naturally
 
 
 # =========================
