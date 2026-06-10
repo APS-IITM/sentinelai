@@ -22,7 +22,7 @@ class ThreatEvent(BaseModel):
     acknowledged: bool = False
     investigated: bool = False
     
-    # ✅ Updated default_factory to timezone-aware UTC to prevent deprecation warnings
+   
     timestamp: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )

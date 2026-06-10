@@ -11,12 +11,11 @@ class IntelligenceReport(BaseModel):
     severity: str
     attack_story: str
     
-    # ✅ Explicitly typed containers to maintain strict Pydantic database integrity validation
     timeline: List[Dict] = Field(default_factory=list)
     mitre_techniques: List[str] = Field(default_factory=list)
     recommendations: List[str] = Field(default_factory=list)
     
     event_count: int
     created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc) # Avoids deprecation errors
+        default_factory=lambda: datetime.now(timezone.utc) 
     )
