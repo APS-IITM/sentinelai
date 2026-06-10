@@ -1,3 +1,6 @@
+import streamlit as st
+from loguru import logger  # Excellent for structured, color-coded tracebacks
+
 from src.anomaly.detectors import StatisticalDetector, MLDetector
 from src.anomaly.scorer import RiskScorer
 from src.anomaly.classifier import AttackClassifier
@@ -14,8 +17,12 @@ class AnomalyAnalyzer:
     def analyze_series(self, source: str, values: list):
         
         if not values or len(values) < 10:
+            logger.warning(f"⚠️ Skipping stream {source}: Insufficient data points ({len(values) if values else 0}/10).")
             return None
 
+        # ---------------------------------------------------------
+        # 🕵️ STEP 1: DETECTION LAYER
+        # ---------------------------------------------------------
         stat_flag, stat_score = StatisticalDetector.detect_spike(values)
         ml_flag, ml_score = self.ml.detect(values)
 
@@ -25,6 +32,7 @@ class AnomalyAnalyzer:
         if not stat_flag and not ml_flag:
             return None
 
+        # Build Data Payload
         threat = ThreatEvent(
             source=source,
             anomaly_type="VOLUME_SPIKE",
@@ -36,17 +44,55 @@ class AnomalyAnalyzer:
             data_points=int(values[-1])
         )
 
-        # 1. Save raw anomaly to the database
-        AnomalyStore.save(
-            threat.model_dump(mode="json")
-        )
+        logger.info(f"🚨 Anomaly Detected | Source: {source} | Severity: {severity} | Score: {score}")
 
-        # ⛓️ 2. THE PIPELINE LINK: Automatically hand off the threat event to the CTI engine!
-        # Wrapping it in a list container ensures your engine's iterator loop can process it instantly.
+        # ---------------------------------------------------------
+        # 💾 STEP 2: PERSISTENCE LAYER
+        # ---------------------------------------------------------
         try:
-            self.intel_engine.analyze([threat])
+            AnomalyStore.save(threat.model_dump(mode="json"))
+            logger.success(f"Successfully committed anomaly for {source} to AnomalyStore.")
+        except Exception as db_err:
+            logger.error(f"❌ Failed writing to AnomalyStore: {str(db_err)}")
+            st.error(f"Database Write Failure [AnomalyStore]: {str(db_err)}")
+
+        # ---------------------------------------------------------
+        # ⛓️ STEP 3: PIPELINE DEBBUGGER LINK (INTELLIGENCE ENGINE)
+        # ---------------------------------------------------------
+        threat_payload = [threat.model_dump(mode="json")] if hasattr(threat, "model_dump") else [threat]
+
+        logger.debug(f"⚡ Cascading anomaly payload to IntelligenceEngine: {threat_payload}")
+
+        try:
+            # Execute CTI analysis
+            report = self.intel_engine.analyze(threat_payload)
+            
+            if report:
+                logger.success(f"✅ IntelligenceEngine successfully generated CTI Report ID: {getattr(report, 'report_id', 'N/A')}")
+                # Optional: Render runtime updates on the Streamlit dashboard if live
+                if st.runtime.exists():
+                    st.toast(f"ℹ️ CTI Engine Compiled {severity} Threat Report!", icon="🛡️")
+            else:
+                logger.warning("⚠️ IntelligenceEngine completed execution but returned an empty report.")
+                
         except Exception as e:
-            # Prevent an analytical CTI breakdown from crashing your main logging service
-            print(f"⚠️ Intelligence Engine cascade failed: {str(e)}")
+            # Capture full trace details in your terminal/cloud logs
+            logger.exception("❌ CRITICAL CRASH inside IntelligenceEngine processing loop!")
+            
+            # Surface an interactive visual debugger window directly inside your Streamlit App
+            if st.runtime.exists():
+                with st.expander("🚨 PIPELINE CRASH: Intelligence Engine Debugger", expanded=True):
+                    st.error(f"**Error:** {str(e)}")
+                    st.markdown("### Contextual Diagnostics")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric(label="Target Source", value=source)
+                        st.metric(label="Calculated Severity", value=str(severity))
+                    with col2:
+                        st.metric(label="Calculated Score", value=f"{score:.2f}")
+                        st.metric(label="Payload Size Sent", value=f"{len(threat_payload)} item(s)")
+                    
+                    st.markdown("#### Exact Payload Sent to Engine:")
+                    st.json(threat_payload)
 
         return threat
