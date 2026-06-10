@@ -2,23 +2,22 @@ import os
 from dotenv import load_dotenv
 from src.storage.base_store import BaseStore  
 
-# 🔌 IMPORT THE INITIALIZED CLIENT FROM YOUR CLIENT SCRIPT
+# 🔌 IMPORT THE INITIALIZED CLIENT AND YOUR EXPLICIT MCP MODULE
 from src.storage.supabase_client import supabase 
+# Make sure the import path below points directly to your standalone MCPStore file:
+from src.storage.mcp_store import MCPStore  
 
 load_dotenv()
 
 # ==========================================
 # ⛓️ INJECT CLIENT INTO THE BASE CLASS DIRECTLY
 # ==========================================
-# Because BaseStore does not accept arguments in __init__, 
-# we bind the client directly to the base class so all children inherit it.
 BaseStore.client = supabase
 
 
 # ==========================================
 # 🏛️ REPOSITORY MATRIX (OOP LAYER)
 # ==========================================
-
 class AnomalyStore(BaseStore):
     TABLE_NAME = "anomalies"
 
@@ -28,15 +27,10 @@ class IntelligenceStore(BaseStore):
 class AIReportStore(BaseStore):
     TABLE_NAME = "ai_reports"
 
-class MCPStore(BaseStore):
-    TABLE_NAME = "mcp_store"
 
-
-# FIXED: Reverted to empty constructors since BaseStore takes no arguments
 anomaly_store = AnomalyStore()
 intel_store = IntelligenceStore()
 ai_store = AIReportStore()
-mcp_store = MCPStore()
 
 
 # ==========================================
@@ -67,14 +61,29 @@ def save_ai_report(report_dict):
     return ai_store.save(report_dict)
 
 
-# ---------- MCP MANAGEMENT ----------
+# ---------- MCP MANAGEMENT (RECONCILED LAYER) ----------
 def get_mcp(tool_name):
-    if not MCPStore.TABLE_NAME:
-        raise ValueError("TABLE_NAME not defined")
-    
-    # Explicitly utilizes the imported central supabase engine asset
-    response = supabase.table(MCPStore.TABLE_NAME).select("*").eq("tool_name", tool_name).execute()
-    return response.data or []
+    """Routes directly through the standalone MCPStore mapping logic to unpack payloads cleanly."""
+    if not tool_name:
+        return []
+    # Leverages your custom payload extraction: row["payload"] for row in response.data
+    return MCPStore.get(tool_name)
+
 
 def save_mcp_config(mcp_dict):
-    return mcp_store.save(mcp_dict)
+    """
+    Intercepts unified data dictionaries and splits them safely 
+    to match the (tool_name, data) requirements of your standalone MCP script.
+    """
+    if not isinstance(mcp_dict, dict):
+        return []
+        
+    # Extract structural arguments out of the dictionary
+    tool_name = mcp_dict.get("tool_name") or mcp_dict.get("attack_type") or "UNKNOWN_TOOL"
+    
+    # If the simulator passes a raw dict, look for an inner payload block, or dump the whole dict
+    data_content = mcp_dict.get("payload") or mcp_dict
+    
+    # Execute the standalone static method with correct arguments
+    response = MCPStore.save(tool_name, data_content)
+    return response.data or []
