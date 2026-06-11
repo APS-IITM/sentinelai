@@ -1,9 +1,13 @@
 """
-SentinelAI Background Daemon - Fixed Version
-Flow: Splunk -> MCP Store -> Anomaly Engine -> Intelligence Engine
+SentinelAI Background Daemon
+
+Flow:
+Splunk -> MCP Store -> Anomaly Engine -> Intelligence Engine
 """
 
 import time
+import os
+import json
 from loguru import logger
 
 from src.mcp_tools.auth_tools import AuthTools
@@ -15,6 +19,7 @@ from src.anomaly.analyzer import AnomalyAnalyzer
 from src.intelligence.engine import IntelligenceEngine
 
 POLL_INTERVAL = 10
+SIMULATOR_LOG_PATH = "attack_stream.log"
 
 
 class SplunkDaemon:
@@ -31,6 +36,7 @@ class SplunkDaemon:
     def collect_events(self):
         events = []
 
+        # 1. NATIVE MCP TOOL COLLECTION PIPELINE
         try:
             events.extend(self.auth.get_auth_logs())
         except Exception as e:
@@ -42,12 +48,7 @@ class SplunkDaemon:
             logger.error(f"Network collection failed: {e}")
 
         try:
-            # FIX: Changed from get_auth_logs() to get_security_logs()
-            # Verify the exact method name in your src/mcp_tools/security_tools.py file
-            if hasattr(self.security, 'get_security_logs'):
-                events.extend(self.security.get_security_logs())
-            else:
-                events.extend(self.security.get_auth_logs()) 
+            events.extend(self.security.get_auth_logs())
         except Exception as e:
             logger.error(f"Security collection failed: {e}")
 
@@ -56,16 +57,35 @@ class SplunkDaemon:
         except Exception as e:
             logger.error(f"System collection failed: {e}")
 
+        # 2. SIMULATOR STREAM INTERCEPTOR PIPELINE
+        # Reads file-based streams written by the UI frontend
+        if os.path.exists(SIMULATOR_LOG_PATH):
+            try:
+                with open(SIMULATOR_LOG_PATH, "r+", encoding="utf-8") as f:
+                    lines = f.readlines()
+                    for line in lines:
+                        if not line.strip():
+                            continue
+                        try:
+                            parsed_event = json.loads(line)
+                            events.append(parsed_event)
+                        except json.JSONDecodeError:
+                            continue
+                    
+                    # Truncate/wipe log file immediately after successful ingest 
+                    # to prevent duplicate anomaly triggers on subsequent cycles
+                    f.seek(0)
+                    f.truncate()
+                logger.info(f"Ingested simulated attack vector records from {SIMULATOR_LOG_PATH}")
+            except Exception as e:
+                logger.error(f"Error extracting simulation log stream: {e}")
+
         return events
 
     def run_cycle(self):
         logger.info("Starting collection cycle")
         events = self.collect_events()
-        logger.info(f"Collected {len(events)} events")
-
-        if not events:
-            logger.warning("No events collected in this cycle.")
-            return
+        logger.info(f"Collected {len(events)} total raw events")
 
         grouped = {
             "auth": [],
@@ -74,47 +94,49 @@ class SplunkDaemon:
             "system": []
         }
 
+        # DYNAMIC ROUTING & SIMULATOR ENGINE STYLE ALIGNMENT
         for e in events:
-            # Defensive check: if event is a string, wrap it or parse it
             if not isinstance(e, dict):
-                # If your attack logs are raw strings, we try to categorize via raw text search
-                src_str = str(e).lower()
-                if "auth" in src_str: grouped["auth"].append({"raw": e})
-                elif "network" in src_str: grouped["network"].append({"raw": e})
-                elif "security" in src_str: grouped["security"].append({"raw": e})
-                else: grouped["system"].append({"raw": e})
+                grouped["system"].append(e)
                 continue
 
-            # If it's a properly formatted dict
-            src = e.get("source", "").lower()
-            
-            if "auth" in src:
-                grouped["auth"].append(e)
-            elif "network" in src:
-                grouped["network"].append(e)
-            elif "security" in src:
-                grouped["security"].append(e)
+            # Extract identifier parameters
+            src = str(e.get("source", "system")).lower()
+            attack_type = str(e.get("attack_type", "")).lower()
+
+            # Cross-compatibility optimization check for your UI Simulator framework
+            if "soc_sim" in src or attack_type != "":
+                # Convert simulated envelope structure seamlessly to match Engine Style classifications
+                if "brute" in attack_type:
+                    grouped["auth"].append(e)
+                elif "ddos" in attack_type or "scan" in attack_type:
+                    grouped["network"].append(e)
+                elif "error" in attack_type or "storm" in attack_type:
+                    grouped["system"].append(e)
+                else:
+                    grouped["security"].append(e)
             else:
-                # Fallback check: check other fields if 'source' isn't explicitly set
-                event_str = str(e).lower()
-                if "auth" in event_str: grouped["auth"].append(e)
-                elif "network" in event_str: grouped["network"].append(e)
-                elif "security" in event_str: grouped["security"].append(e)
-                else: grouped["system"].append(e)
+                # Standard native routing configuration for fallback loops
+                if "auth" in src:
+                    grouped["auth"].append(e)
+                elif "network" in src:
+                    grouped["network"].append(e)
+                elif "security" in src:
+                    grouped["security"].append(e)
+                else:
+                    grouped["system"].append(e)
 
         threats = []
-        for name, group in grouped.items():
-            if not group:
-                continue  # Skip running the engine for empty sets
 
+        # PREPARATION AND ANOMALY EVALUATION ENGINE INTERACTION
+        for name, group in grouped.items():
+            # Standard metric array extraction
             values = [
-                int(x.get("count", 1))
-                if isinstance(x, dict) else 1
+                int(x.get("count", 1)) if isinstance(x, dict) else 1
                 for x in group
             ]
 
-            logger.debug(f"Analyzing {name} series with data: {values}")
-            
+            # Fire analysis profile engine evaluation mapping
             threat = self.anomaly_engine.analyze_series(
                 name,
                 values,
@@ -124,12 +146,11 @@ class SplunkDaemon:
             if threat:
                 threats.append(threat)
 
-        if threats:
-            logger.warning(f"Detected {len(threats)} threats!")
-            reports = self.intel_engine.analyze(threats)
-            logger.info(f"Generated {len(reports)} intelligence reports")
-        else:
-            logger.info("No threats detected in this cycle.")
+        logger.info(f"Detected {len(threats)} threats across telemetry streams")
+
+        # GENERATING UPSTREAM SECURITY REPORT INTELLIGENCE
+        reports = self.intel_engine.analyze(threats)
+        logger.info(f"Generated {len(reports)} intelligence reports")
 
     def run(self):
         logger.info("SentinelAI Daemon Started")
@@ -137,7 +158,8 @@ class SplunkDaemon:
             try:
                 self.run_cycle()
             except Exception as e:
-                logger.exception(f"Daemon error: {e}")
+                logger.exception(f"Daemon runtime anomaly error: {e}")
+
             time.sleep(POLL_INTERVAL)
 
 
