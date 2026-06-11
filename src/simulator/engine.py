@@ -1,4 +1,5 @@
 import uuid
+import random
 from typing import Dict, Any
 from src.simulator.state import AttackState
 from src.simulator.controller import AttackSimulator
@@ -12,25 +13,19 @@ class AttackEngine:
     def launch_attack(self, attack_type: str) -> Dict[str, Any]:
         attack_id = str(uuid.uuid4())[:8]
 
-        # 1. Pipeline generation executes structural raw logs
-        events = self.simulator.run_attack(attack_type)
-        
-        # Calculate standard macro severity for UI metadata display from wrapped logs
-        if events:
-            severities = [ev.get("severity", "LOW") for ev in events]
-            if "CRITICAL" in severities:
-                base_sev = "CRITICAL"
-            elif "HIGH" in severities:
-                base_sev = "HIGH"
-            elif "MEDIUM" in severities:
-                base_sev = "MEDIUM"
-            else:
-                base_sev = "LOW"
-        else:
-            base_sev = "LOW"
+        # 🎯 AUTOMATIC RANDOM SEVERITY ALLOCATION
+        # Distributes the threats realistically so you get a rich variance of test metrics
+        severity_options = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+        selected_severity = random.choices(
+            severity_options, 
+            weights=[0.35, 0.35, 0.20, 0.10] # 10% chance for a severe production emergency
+        )[0]
 
-        # 2. Log configuration deployment sequence
-        AttackState.start_attack(attack_id, attack_type, base_sev)
+        # 1. Pipeline generation executes structural raw logs according to chosen context
+        events = self.simulator.run_attack(attack_type, severity=selected_severity)
+
+        # 2. Log deployment and state synchronization sequence
+        AttackState.start_attack(attack_id, attack_type, selected_severity)
         AttackState.update(attack_id, len(events))
         AttackState.complete(attack_id)
 
@@ -38,6 +33,6 @@ class AttackEngine:
             "attack_id": attack_id,
             "attack_type": attack_type,
             "events": len(events),
-            "severity": base_sev,
+            "severity": selected_severity,
             "status": "COMPLETED",
         }
