@@ -1,29 +1,31 @@
 import os
 import json
-import threading
 from typing import List, Dict, Any
+from src.storage.attack_log_store import AttackLogStore
 
 
 class AttackRunner:
 
     def __init__(self, filename: str = "attack_stream.log"):
+        """
+        Initialized with fallback default configurations. 
+        Note: File-handling structures are bypassed in favor of Supabase Cloud Store.
+        """
         self.file_path = filename
-        self._io_lock = threading.Lock()
 
     def push(self, events: List[Dict[str, Any]], attack_type: str) -> None:
+        """
+        Pushes wrapped simulation data records up to Supabase via AttackLogStore.
+        """
         if not events:
             return
 
-        # Ensure parent execution paths exist in runtime environment
-        parent_dir = os.path.dirname(os.path.abspath(self.file_path))
-        if parent_dir and not os.path.exists(parent_dir):
-            os.makedirs(parent_dir, exist_ok=True)
-
-        # Thread-locked, safe stream writing allocation
-        with self._io_lock:
-            try:
-                with open(self.file_path, "a", encoding="utf-8") as f:
-                    for e in events:
-                        f.write(json.dumps(e) + "\n")
-            except (IOError, OSError) as io_err:
-                print(f"[FATAL WRITER EXCEPTION] Pipeline writing error: {str(io_err)}")
+        try:
+            # Batch record insertion into your Supabase database tier
+            for e in events:
+                AttackLogStore.save(e)
+                
+            print(f"[SUCCESS] Streamed {len(events)} '{attack_type}' simulation logs directly to Supabase cloud table.")
+            
+        except Exception as err:
+            print(f"[FATAL WRITER EXCEPTION] Supabase pipeline stream writing error: {str(err)}")
