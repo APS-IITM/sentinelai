@@ -1,3 +1,4 @@
+
 from loguru import logger
 
 from src.intelligence.models import IntelligenceReport
@@ -72,7 +73,9 @@ class IntelligenceEngine:
 
     def analyze(self, events):
 
+        logger.info("=" * 80)
         logger.info("🧠 IntelligenceEngine Execution Started")
+        logger.info("=" * 80)
 
         if not events:
 
@@ -88,6 +91,10 @@ class IntelligenceEngine:
 
         logger.info(
             f"📦 Event Type: {type(events[0])}"
+        )
+
+        logger.debug(
+            f"📦 First Event Content: {events[0]}"
         )
 
         reports_generated = []
@@ -108,7 +115,8 @@ class IntelligenceEngine:
             }
 
             logger.info(
-                f"🎯 Severity Groups Detected: {list(unique_severities)}"
+                f"🎯 Severity Groups Detected: "
+                f"{list(unique_severities)}"
             )
 
         except Exception:
@@ -122,7 +130,8 @@ class IntelligenceEngine:
         for target_severity in unique_severities:
 
             logger.info(
-                f"🔍 Processing Severity Group: {target_severity}"
+                f"🔍 Processing Severity Group: "
+                f"{target_severity}"
             )
 
             severity_events = [
@@ -140,18 +149,42 @@ class IntelligenceEngine:
                 ).upper() == target_severity
             ]
 
+            logger.info(
+                f"📊 Events in group: "
+                f"{len(severity_events)}"
+            )
+
             if not severity_events:
 
                 logger.warning(
-                    f"⚠️ No events found for {target_severity}"
+                    f"⚠️ No events found for "
+                    f"{target_severity}"
                 )
 
                 continue
 
+            logger.info(
+                "🔬 Event Breakdown:"
+            )
+
+            for event in severity_events:
+
+                logger.debug(
+                    f"Source={self._get_val(event, 'source')} | "
+                    f"Attack={self._get_val(event, 'attack_type')} | "
+                    f"Severity={self._get_val(event, 'severity')} | "
+                    f"Score={self._get_val(event, 'score')}"
+                )
+
+            # --------------------------------------------------
+            # CORRELATION
+            # --------------------------------------------------
+
             try:
 
                 logger.info(
-                    f"⚡ Correlating {len(severity_events)} event(s)"
+                    f"⚡ Correlating "
+                    f"{len(severity_events)} event(s)"
                 )
 
                 incident_type, confidence = (
@@ -161,7 +194,7 @@ class IntelligenceEngine:
                 )
 
                 logger.success(
-                    f"Correlation Result: "
+                    f"🎯 Correlation Result: "
                     f"{incident_type} "
                     f"({confidence}% confidence)"
                 )
@@ -174,6 +207,10 @@ class IntelligenceEngine:
 
                 continue
 
+            # --------------------------------------------------
+            # TIMELINE
+            # --------------------------------------------------
+
             try:
 
                 logger.info(
@@ -185,7 +222,8 @@ class IntelligenceEngine:
                 )
 
                 logger.success(
-                    f"Timeline Built ({len(timeline)} entries)"
+                    f"✅ Timeline Built "
+                    f"({len(timeline)} entries)"
                 )
 
             except Exception:
@@ -195,6 +233,10 @@ class IntelligenceEngine:
                 )
 
                 continue
+
+            # --------------------------------------------------
+            # MITRE ATT&CK
+            # --------------------------------------------------
 
             try:
 
@@ -212,6 +254,11 @@ class IntelligenceEngine:
                         "UNKNOWN"
                     )
 
+                    logger.debug(
+                        f"MITRE Mapping -> "
+                        f"{attack_type}"
+                    )
+
                     mitre.extend(
                         MitreMapper.map_attack(
                             attack_type
@@ -223,7 +270,8 @@ class IntelligenceEngine:
                 )
 
                 logger.success(
-                    f"MITRE Techniques: {mitre}"
+                    f"✅ MITRE Techniques: "
+                    f"{mitre}"
                 )
 
             except Exception:
@@ -234,6 +282,10 @@ class IntelligenceEngine:
 
                 mitre = []
 
+            # --------------------------------------------------
+            # STORY GENERATION
+            # --------------------------------------------------
+
             try:
 
                 logger.info(
@@ -243,6 +295,10 @@ class IntelligenceEngine:
                 story = StoryGenerator.generate(
                     severity_events,
                     incident_type
+                )
+
+                logger.success(
+                    "✅ Story generated."
                 )
 
             except Exception:
@@ -256,12 +312,22 @@ class IntelligenceEngine:
                     "generation failed."
                 )
 
+            # --------------------------------------------------
+            # RECOMMENDATIONS
+            # --------------------------------------------------
+
             dynamic_recommendations = (
                 self.RECOMMENDATION_PLAYBOOKS.get(
                     incident_type,
-                    self.RECOMMENDATION_PLAYBOOKS["DEFAULT"]
+                    self.RECOMMENDATION_PLAYBOOKS[
+                        "DEFAULT"
+                    ]
                 )
             )
+
+            # --------------------------------------------------
+            # REPORT CREATION
+            # --------------------------------------------------
 
             try:
 
@@ -272,7 +338,9 @@ class IntelligenceEngine:
                     timeline=timeline,
                     mitre_techniques=mitre,
                     recommendations=dynamic_recommendations,
-                    event_count=len(severity_events)
+                    event_count=len(
+                        severity_events
+                    )
                 )
 
                 logger.success(
@@ -288,17 +356,23 @@ class IntelligenceEngine:
 
                 continue
 
+            # --------------------------------------------------
+            # STORAGE
+            # --------------------------------------------------
+
             try:
 
-                logger.info(
-                    f"💾 Saving Report "
-                    f"{report.report_id}"
+                payload = report.model_dump(
+                    mode="json"
+                )
+
+                logger.debug(
+                    f"💾 Report Payload: "
+                    f"{payload}"
                 )
 
                 IntelligenceStore.save(
-                    report.model_dump(
-                        mode="json"
-                    )
+                    payload
                 )
 
                 logger.success(
@@ -316,9 +390,14 @@ class IntelligenceEngine:
                 report
             )
 
+        logger.info("=" * 80)
+
         logger.success(
             f"🏁 IntelligenceEngine completed. "
             f"Generated {len(reports_generated)} report(s)."
         )
 
+        logger.info("=" * 80)
+
         return reports_generated
+
