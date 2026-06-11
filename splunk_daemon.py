@@ -66,7 +66,7 @@ class SplunkDaemon:
 
         logger.info(f"Collected {len(events)} events")
 
-        threats = self.anomaly_engine.analyze(events)
+        threats = self.anomaly_engine.analyze_series(events)
 
         logger.info(f"Detected {len(threats)} threats")
 
