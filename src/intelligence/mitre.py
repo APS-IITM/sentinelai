@@ -2,15 +2,15 @@ class MitreMapper:
 
     MAPPING = {
 
-        "BRUTE_FORCE_ATTACK": [
+        "BRUTE_FORCE": [
             "T1110 - Brute Force"
         ],
 
-        "NETWORK_SCAN": [
+        "PORT_SCAN": [
             "T1046 - Network Service Discovery"
         ],
 
-        "DDOS_ATTACK": [
+        "DOS_ATTACK": [
             "T1498 - Network Denial of Service"
         ],
 
@@ -39,7 +39,7 @@ class MitreMapper:
     def map_attack(cls, attack_type):
 
         return cls.MAPPING.get(
-            attack_type,
+            str(attack_type).upper(),
             ["Unknown Technique"]
         )
 
@@ -50,14 +50,25 @@ class MitreMapper:
 
         for event in events:
 
-            attack = getattr(
-                event,
-                "attack_type",
-                "UNKNOWN"
-            )
+            if isinstance(event, dict):
+
+                attack = event.get(
+                    "attack_type",
+                    "UNKNOWN"
+                )
+
+            else:
+
+                attack = getattr(
+                    event,
+                    "attack_type",
+                    "UNKNOWN"
+                )
 
             techniques.update(
                 cls.map_attack(attack)
             )
 
-        return sorted(list(techniques))
+        return sorted(
+            list(techniques)
+        )
