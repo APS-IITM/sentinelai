@@ -58,6 +58,7 @@ class SplunkDaemon:
 
         return events
 
+
     def run_cycle(self):
 
         logger.info("Starting collection cycle")
@@ -66,7 +67,43 @@ class SplunkDaemon:
 
         logger.info(f"Collected {len(events)} events")
 
-        threats = self.anomaly_engine.analyze_series(events)
+        grouped = {
+            "auth": [],
+            "network": [],
+            "security": [],
+            "system": []
+        }
+
+        for e in events:
+            src = e.get("source", "system").lower() if isinstance(e, dict) else "system"
+
+            if "auth" in src:
+                grouped["auth"].append(e)
+            elif "network" in src:
+                grouped["network"].append(e)
+            elif "security" in src:
+                grouped["security"].append(e)
+            else:
+                grouped["system"].append(e)
+
+        threats = []
+
+        for name, group in grouped.items():
+
+            values = [
+                int(x.get("count", 1))
+                if isinstance(x, dict) else 1
+                for x in group
+            ]
+
+            threat = self.anomaly_engine.analyze_series(
+                name,
+                values,
+                group   
+            )
+
+            if threat:
+                threats.append(threat)
 
         logger.info(f"Detected {len(threats)} threats")
 
