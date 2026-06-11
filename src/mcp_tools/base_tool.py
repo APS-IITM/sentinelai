@@ -60,5 +60,23 @@ class BaseTool:
             return {"status": "error", "message": f"Tool execution failed: {str(e)}", "results": []}
 
     def execute(self, query: str):
-        """Synchronous wrapper fallback for legacy pipeline engines or test scripts."""
-        return asyncio.run(self.execute_async(query))
+        """Pure synchronous execution for standalone scripts."""
+        from src.splunk.client import run_search
+        from src.utils.formatter import normalize_response
+        
+        logger.info(f"🔍 [MCP Tool: {self.TOOL_NAME}] Executing threat hunt...")
+        try:
+            # Straight synchronous execution
+            raw = run_search(self.service, query)
+            result = normalize_response(raw)
+            
+            # Synchronous DB Save
+            try:
+                MCPStore.save(self.TOOL_NAME, {"query": query, "results": result})
+            except Exception as e:
+                logger.error(f"DB Save failure: {e}")
+                
+            return result
+        except Exception as e:
+            logger.exception(f"Execution failed: {e}")
+            return {"status": "error", "results": []}
