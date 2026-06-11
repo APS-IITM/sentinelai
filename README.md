@@ -1,172 +1,322 @@
 # 🛡️ SentinelAI: Autonomous Agentic Security Operations & Cyber Threat Intelligence Engine
 
-> **Built for the Splunk Agentic Ops Hackathon**
+> **Splunk Agentic Ops Hackathon Submission**
 >
-> Transforming raw security telemetry into actionable intelligence through autonomous agents, machine learning, and real-time threat correlation.
+> Track: **Security**
 
 ---
 
-## 🚀 Overview
+# 📌 Problem Statement
 
-Modern Security Operations Centers (SOCs) face an overwhelming volume of alerts, logs, and security events every day. Analysts often spend more time investigating data than responding to threats.
+Security Operations Centers (SOCs) generate massive volumes of alerts and telemetry every day. Analysts often spend significant time manually reviewing logs, correlating events, identifying attack patterns, and preparing incident reports.
 
-**SentinelAI** is an autonomous Security Operations and Cyber Threat Intelligence (CTI) platform designed to bridge that gap. By combining continuous telemetry ingestion, machine learning–based anomaly detection, threat classification, and agentic reasoning through the Model Context Protocol (MCP), SentinelAI transforms raw security events into meaningful intelligence.
+This creates several challenges:
 
-Rather than generating another dashboard full of alerts, SentinelAI focuses on answering critical questions:
+* Alert fatigue
+* Slow incident investigations
+* Limited contextual threat intelligence
+* Manual threat correlation workflows
+* Delayed response times
 
-* What happened?
-* Why did it happen?
-* How severe is the threat?
-* Which MITRE ATT&CK techniques are involved?
-* What actions should be taken next?
-
----
-
-# 🎯 Key Capabilities
-
-### 📡 Continuous Security Telemetry Processing
-
-A dedicated background worker continuously ingests and processes security events, ensuring analysis remains active regardless of dashboard state.
-
-### 🤖 Hybrid Anomaly Detection
-
-Combines statistical analysis and machine learning to identify suspicious behavior:
-
-* Rolling Z-Score anomaly detection
-* Isolation Forest outlier detection
-* Dynamic risk scoring
-* False-positive reduction through multi-layer validation
-
-### 🧠 Context-Aware Threat Classification
-
-Detected anomalies are enriched with contextual intelligence and automatically classified into attack categories such as:
-
-* Brute Force Attacks
-* Port Scanning
-* Denial-of-Service Activity
-* Error Storms
-* Suspicious Authentication Patterns
-
-### 🔍 Agentic Threat Investigation
-
-Through MCP-powered tools, AI agents can securely interact with operational security data, perform investigations, and assist analysts with contextual threat hunting.
-
-### 📊 Cyber Threat Intelligence Generation
-
-SentinelAI converts isolated anomalies into structured intelligence by:
-
-* Correlating related events
-* Building attack timelines
-* Mapping behaviors to MITRE ATT&CK
-* Generating analyst-ready CTI reports
-
-### 🗄️ Persistent Intelligence Storage
-
-All intelligence artifacts are stored in Supabase for future investigation, reporting, and historical analysis.
+SentinelAI addresses these challenges by combining Splunk telemetry, machine learning, and agentic AI workflows to automatically detect, classify, investigate, and explain security incidents.
 
 ---
 
-# 🏗️ Architecture
+# 🚀 Solution Overview
+
+SentinelAI is an autonomous Security Operations and Cyber Threat Intelligence (CTI) platform that transforms raw security telemetry into actionable intelligence.
+
+The platform continuously:
+
+1. Ingests security telemetry
+2. Detects anomalies
+3. Classifies attack patterns
+4. Maps threats to MITRE ATT&CK
+5. Generates CTI reports
+6. Assists investigations through AI-powered agents
+
+Rather than producing more alerts, SentinelAI helps analysts understand the story behind an incident.
+
+---
+
+# 🤖 How AI Is Used
+
+SentinelAI leverages AI across multiple stages of the security workflow.
+
+### Machine Learning Anomaly Detection
+
+* Isolation Forest identifies unusual activity patterns
+* Statistical Z-Score analysis validates anomalies
+* Multi-layer detection reduces false positives
+
+### Agentic Security Investigation
+
+Using MCP-enabled tools, AI agents can:
+
+* Query operational security data
+* Investigate suspicious activity
+* Correlate events
+* Assist threat hunting workflows
+
+### Cyber Threat Intelligence Generation
+
+The Intelligence Engine automatically:
+
+* Builds attack timelines
+* Generates incident summaries
+* Maps activity to MITRE ATT&CK
+* Produces analyst-ready CTI reports
+
+---
+
+# 🔍 Splunk Integration
+
+SentinelAI uses Splunk as its primary telemetry and security data source.
+
+### Splunk Components
+
+* Splunk Enterprise
+* SPL Queries
+* Splunk Telemetry Pipelines
+* Security Event Monitoring
+
+### Data Flow
+
+1. Security events are generated or ingested.
+2. Splunk stores and indexes telemetry.
+3. SentinelAI continuously polls Splunk data.
+4. Anomaly engines evaluate incoming activity.
+5. Intelligence is generated from detected threats.
+6. Results are presented through the dashboard and AI agents.
+
+---
+
+# 🏗️ Architecture Diagram
+
+> Include an image named:
 
 ```text
-                   ┌─────────────────────────┐
-                   │    Security Analyst     │
-                   └────────────┬────────────┘
-                                │
-                                ▼
-                   ┌─────────────────────────┐
-                   │   Streamlit Dashboard   │
-                   └────────────┬────────────┘
-                                │
-                                ▼
-                   ┌─────────────────────────┐
-                   │   Threat Simulator UI   │
-                   └────────────┬────────────┘
-                                │
-                                ▼
-                   ┌─────────────────────────┐
-                   │     Supabase Queue      │
-                   └────────────┬────────────┘
-                                │
-                                ▼
-                   ┌─────────────────────────┐
-                   │     Splunk Daemon       │
-                   │  Continuous Processing  │
-                   └────────────┬────────────┘
-                                │
-                ┌───────────────┴───────────────┐
-                ▼                               ▼
+docs/architecture.png
+```
 
-      ┌───────────────────┐         ┌───────────────────┐
-      │ Statistical Layer │         │ Machine Learning  │
-      │    Z-Score        │         │ Isolation Forest  │
-      └───────────────────┘         └───────────────────┘
-                │                               │
-                └───────────────┬───────────────┘
-                                ▼
-                   ┌─────────────────────────┐
-                   │ Intelligence Engine     │
-                   │ Classification + CTI    │
-                   └────────────┬────────────┘
-                                │
-                                ▼
-                   ┌─────────────────────────┐
-                   │ MCP Server & AI Agents  │
-                   └─────────────────────────┘
+The architecture diagram should illustrate:
+
+* Splunk Enterprise
+* Splunk MCP Server
+* SentinelAI Intelligence Engine
+* Anomaly Detection Layer
+* Supabase Database
+* Streamlit Dashboard
+* AI Agents
+* Data Flow Between Components
+
+---
+
+# ⚙️ Key Features
+
+## 📡 Continuous Telemetry Monitoring
+
+* Real-time event processing
+* Background daemon architecture
+* Automated ingestion workflows
+
+## 🤖 Hybrid Anomaly Detection
+
+* Z-Score statistical detection
+* Isolation Forest machine learning
+* Dynamic risk scoring
+
+## 🎯 Threat Classification
+
+Detects and classifies:
+
+* Brute Force Attacks
+* Port Scans
+* Denial of Service Events
+* Error Storms
+* Authentication Anomalies
+
+## 🧠 Agentic Threat Hunting
+
+* MCP-powered investigation tools
+* AI-assisted incident analysis
+* Autonomous security workflows
+
+## 📊 Cyber Threat Intelligence
+
+* MITRE ATT&CK mapping
+* Timeline reconstruction
+* Incident scoring
+* CTI report generation
+
+## 🗄️ Persistent Intelligence Storage
+
+* Historical investigations
+* Threat records
+* Intelligence reports
+* Security analytics
+
+---
+
+# 🛠️ Technology Stack
+
+| Component        | Technology           |
+| ---------------- | -------------------- |
+| SIEM             | Splunk Enterprise    |
+| AI Agents        | MCP Framework        |
+| Machine Learning | Scikit-Learn         |
+| Statistics       | NumPy, Pandas, SciPy |
+| Dashboard        | Streamlit            |
+| Database         | Supabase PostgreSQL  |
+| Language         | Python               |
+| Logging          | Loguru               |
+
+---
+
+# 📂 Repository Structure
+
+```text
+sentinelai/
+│
+├── main.py
+├── app.py
+├── requirements.txt
+├── README.md
+├── LICENSE
+│
+├── docs/
+│   └── architecture.png
+│
+├── src/
+│   ├── anomaly/
+│   ├── intelligence/
+│   ├── simulator/
+│   ├── storage/
+│   ├── mcp_tools/
+│   └── daemon/
+│
+└── assets/
+    ├── screenshots/
+    └── demo/
 ```
 
 ---
 
-# 🔄 Processing Workflow
+# ⚙️ Installation
 
-### 1. Event Generation
+## Clone Repository
 
-The Attack Simulation Engine generates realistic security events with varying severity levels ranging from **LOW** to **CRITICAL**.
+```bash
+git clone https://github.com/your-username/sentinelai.git
 
-### 2. Continuous Ingestion
+cd sentinelai
+```
 
-The background daemon continuously polls incoming events and prepares them for analysis.
+## Create Virtual Environment
 
-### 3. Anomaly Detection
+```bash
+python -m venv venv
 
-Each event stream passes through multiple analytical layers:
+source venv/bin/activate
+```
 
-* Statistical anomaly detection
-* Machine learning anomaly detection
-* Risk scoring
-* Event correlation
+Windows:
 
-### 4. Threat Classification
+```bash
+venv\Scripts\activate
+```
 
-Suspicious events are categorized into attack patterns using metadata analysis and behavioral signatures.
+## Install Dependencies
 
-### 5. Intelligence Generation
-
-Verified threats are transformed into actionable intelligence through:
-
-* Timeline construction
-* Threat scoring
-* MITRE ATT&CK mapping
-* CTI report generation
-
-### 6. Analyst Investigation
-
-Security analysts and AI agents access intelligence through the Streamlit dashboard and MCP tools.
+```bash
+pip install -r requirements.txt
+```
 
 ---
 
-# ✨ Why SentinelAI?
+# 🔑 Environment Configuration
 
-Most security platforms stop at detection.
+Create a `.env` file:
 
-SentinelAI goes further by combining:
+```env
+SPLUNK_HOST=localhost
+SPLUNK_PORT=8089
+SPLUNK_USERNAME=admin
+SPLUNK_PASSWORD=password
 
-* Detection
-* Classification
-* Correlation
-* Investigation
-* Intelligence Generation
+SUPABASE_URL=your_url
+SUPABASE_KEY=your_key
 
-into a unified autonomous workflow.
+GEMINI_API_KEY=your_api_key
+```
 
-The result is a system that helps analysts spend less time searching through logs and more time understanding threats.
+---
+
+# ▶️ Running the Project
+
+### Start Background Processing
+
+```bash
+python -m src.daemon.splunk_daemon
+```
+
+### Launch Dashboard
+
+```bash
+streamlit run app.py
+```
+
+---
+
+# 🧪 Demo Workflow
+
+1. Launch SentinelAI.
+2. Generate simulated attack activity.
+3. Observe telemetry ingestion.
+4. Watch anomaly detection trigger.
+5. Review generated threat intelligence.
+6. Investigate findings through the dashboard.
+7. Access AI-assisted threat analysis.
+
+---
+
+# 🎥 Demo Video
+
+Demo Video:
+
+```text
+https://youtube.com/your-demo-link
+```
+
+---
+
+# 🏆 Hackathon Alignment
+
+SentinelAI aligns with the **Security Track** by:
+
+* Accelerating threat detection
+* Automating investigation workflows
+* Improving incident response efficiency
+* Leveraging Splunk telemetry
+* Integrating AI agents through MCP
+* Generating actionable cyber threat intelligence
+
+---
+
+# 🔮 Future Roadmap
+
+* Multi-agent investigations
+* SOAR integrations
+* Threat feed enrichment
+* Sigma rule generation
+* Natural language threat hunting
+* Automated incident response actions
+* Multi-SIEM support
+
+---
+
+# 📜 License
+
+Licensed under the MIT License.
+
+See the LICENSE file for details.
