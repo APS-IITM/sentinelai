@@ -1,37 +1,32 @@
-#ai_reports.py
 import streamlit as st
-import pandas as pd
-from src.storage.supabase_loader import get_ai_reports
-from src.ai.analyzer import AIAnalyzer
+import main
 
-st.title("🧠 AI Analytics Reports Command")
-st.caption("Review autonomous threat matrices or run localized text-document exports.")
-st.markdown("---")
+st.title("🧠 AI Reports")
 
-stored_briefs = get_ai_reports()
+reports = main.get_all_ai_reports()
 
-if not stored_briefs:
-    st.info("No compiled technical documentation assets available inside Database inventory.")
-else:
-    options_map = {f"Executive Summary Briefing #{doc.get('id')} - Scope Target: {str(doc.get('source_type')).upper()}": doc for doc in stored_briefs}
-    selection = st.selectbox("Select Target Analytics Package to Load", list(options_map.keys()))
-    
-    if selection:
-        selected_record = options_map[selection]
-        
-        st.markdown(f"""
-        <div class="card">
-            <h3 style="margin-top:0; color:#111;">{selection}</h3>
-            <p style="color:#666;"><b>Highest Logged Severity Factor:</b> <span style="color:#D4AF37; font-weight:600;">{selected_record.get('highest_severity')}</span></p>
-            <p style="color:#666;"><b>Sampled Dataset Events Count:</b> {selected_record.get('event_count', 'N/A')}</p>
-            <hr style="border:0; border-top:1px solid #EAEAEA; margin:16px 0;">
-            <div style="background:#FAFBAF; padding:20px; border-radius:8px; line-height:1.6; color:#111; font-size:14px; white-space:pre-wrap;">{selected_record.get('generated_report')}</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.download_button(
-            label="📥 Export Intelligence Document (.TXT)",
-            data=str(selected_record.get('generated_report', '')),
-            file_name=f"SentinelAI_ExecutiveBriefing_{selected_record.get('id')}.txt",
-            mime="text/plain"
-        )
+if not reports:
+    st.info("No reports")
+    st.stop()
+
+options = {
+    f"{r.get('source_type')} #{r.get('id')}": r
+    for r in reports
+}
+
+choice = st.selectbox("Select", list(options.keys()))
+
+selected = options[choice]
+
+st.markdown(f"""
+<div class="card">
+    <h3>{choice}</h3>
+    <p>{selected.get('generated_report')}</p>
+</div>
+""", unsafe_allow_html=True)
+
+st.download_button(
+    "Download",
+    selected.get("generated_report", ""),
+    file_name="ai_report.txt"
+)

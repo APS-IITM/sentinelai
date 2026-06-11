@@ -1,33 +1,20 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import random 
+import random
 
-from src.storage.supabase_loader import (
-    get_anomalies,
-    get_intel_reports
-)
+import main
 
-# =========================
-# PAGE CONFIG
-# =========================
 st.title("🛡️ SentinelAI SOC Command Center")
-st.caption("Real-Time Multi-Domain Security Operations Dashboard (Auth • Network • System • Security)")
+st.caption("Real-Time Multi-Domain Security Operations Dashboard")
 st.markdown("---")
 
 
-# =========================
-# DATA LAYER
-# =========================
-anomalies = get_anomalies()
-intel_reports = get_intel_reports()
+anomalies = main.get_all_anomalies()
+intel_reports = main.get_all_intelligence_reports()
 
 df = pd.DataFrame(anomalies) if anomalies else pd.DataFrame()
 
-
-# =========================
-# NORMALIZATION
-# =========================
 if not df.empty:
     if "severity" not in df.columns:
         df["severity"] = "LOW"
@@ -37,146 +24,51 @@ if not df.empty:
         df["source"] = "SIMULATOR"
 
 
-# =========================
-# METRICS STRIP
-# =========================
 col1, col2, col3, col4 = st.columns(4)
 
 col1.metric("Total Events", len(df))
-
 critical = len(df[df["severity"] == "CRITICAL"]) if not df.empty else 0
 col2.metric("Critical Events", critical)
-
 col3.metric("Intel Reports", len(intel_reports) if intel_reports else 0)
-
 attack_types = df["attack_type"].nunique() if not df.empty else 0
 col4.metric("Attack Vectors Active", attack_types)
 
 st.markdown("---")
 
-
-# =========================
-# LIVE INCIDENT FEED
-# =========================
 st.subheader("🚨 Live SOC Incident Feed")
 
 if df.empty:
-    st.info("No active incidents in SOC pipeline.")
+    st.info("No active incidents.")
 else:
-    st.dataframe(
-        df.sort_values(by=df.columns[0], ascending=False),
-        use_container_width=True
-    )
+    st.dataframe(df, use_container_width=True)
 
 st.markdown("---")
 
+st.subheader("📊 SOC Analytics Overview")
 
-# =========================
-# 📊 SOC ANALYTICS ENGINE
-# =========================
 if not df.empty:
-    st.subheader("📊 SOC Analytics Overview")
-
-    # PIE: Severity Distribution
     sev = df["severity"].value_counts().reset_index()
     sev.columns = ["severity", "count"]
 
-    fig_pie = px.pie(
-        sev,
-        names="severity",
-        values="count",
-        title="Threat Severity Distribution",
-        color_discrete_sequence=px.colors.sequential.Agsunset
-    )
-    st.plotly_chart(fig_pie, use_container_width=True)
+    fig = px.pie(sev, names="severity", values="count")
+    st.plotly_chart(fig, use_container_width=True)
 
-    # BAR: Attack Type Distribution
     atk = df["attack_type"].value_counts().reset_index()
     atk.columns = ["attack_type", "count"]
 
-    fig_bar = px.bar(
-        atk,
-        x="attack_type",
-        y="count",
-        text="count",
-        title="Attack Vector Distribution",
-        color="attack_type"
-    )
-    st.plotly_chart(fig_bar, use_container_width=True)
+    fig2 = px.bar(atk, x="attack_type", y="count", text="count")
+    st.plotly_chart(fig2, use_container_width=True)
 
-    # LINE: Incident Trend
-    if "created_at" in df.columns:
-        df["created_at"] = pd.to_datetime(df["created_at"], errors="coerce")
-        trend_df = df.dropna(subset=["created_at"])
+st.markdown("---")
 
-        trend = trend_df.groupby(trend_df["created_at"].dt.date).size().reset_index(name="count")
-        trend.columns = ["date", "count"]
-
-        fig_line = px.line(
-            trend,
-            x="date",
-            y="count",
-            markers=True,
-            title="Incident Trend Timeline"
-        )
-        st.plotly_chart(fig_line, use_container_width=True)
-
-
-# =========================
-# INTELLIGENCE SNAPSHOT (FIXED: RANDOM 4 SELECT MAX)
-# =========================
 st.subheader("🧠 Intelligence Snapshot")
 
 if intel_reports:
-    # Safe range check sample selection
-    sample_size = min(len(intel_reports), 4)
-    sampled_snapshots = random.sample(intel_reports, sample_size)
-
-    for r in sampled_snapshots:
+    sample = random.sample(intel_reports, min(len(intel_reports), 4))
+    for r in sample:
         st.markdown(f"""
-        <div class="card" style="margin-bottom: 12px;">
-            <h4>Incident: {r.get('incident_type', 'UNKNOWN')}</h4>
-            <p><b>Severity:</b> {r.get('severity', 'N/A')}</p>
-            <p style="color:#555;">{r.get('attack_story', 'No narrative available')}</p>
+        <div class="card">
+            <h4>{r.get('incident_type')}</h4>
+            <p>{r.get('attack_story')}</p>
         </div>
         """, unsafe_allow_html=True)
-else:
-    st.info("No intelligence reports available.")
-
-
-# =========================
-# SOC PIPELINE VIEW
-# =========================
-st.markdown("---")
-st.markdown("""
-### 🧬 SOC Pipeline Flow
-Attack Simulator → MCP Layer (Auth / Network / System / Security) → Splunk Queries → Anomaly Engine → Intelligence Engine → AI Analysis Layer
-""")
-
-# =========================
-# st.header("CTI Pipeline Debugger")
-#
-# if st.button("Force Run CTI Test"):
-#     from app_pages.ui_components.supabase_loader import get_anomalies
-#     
-#     # 1. Check data availability
-#     test_events = get_anomalies()
-#     st.write(f"Fetched {len(test_events)} anomalies from DB.")
-#     
-#     if not test_events:
-#         st.error("Stop. No anomalies found in your Supabase table. Run your simulator first.")
-#     else:
-#         # 2. Track Engine Processing
-#         try:
-#             from src.intelligence.engine import IntelligenceEngine
-#             engine = IntelligenceEngine()
-#             
-#             st.info("Running IntelligenceEngine.analyze()...")
-#             report = engine.analyze(test_events)
-#             
-#             st.success("Analysis executed successfully!")
-#             st.json(report)
-#             
-#         except Exception as err:
-#             st.error(f"Pipeline crashed during execution: {str(err)}")
-# =========================
