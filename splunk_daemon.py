@@ -17,7 +17,7 @@ from src.anomaly.analyzer import AnomalyAnalyzer
 from src.intelligence.engine import IntelligenceEngine
 
 
-POLL_INTERVAL = 60
+POLL_INTERVAL = 10
 
 
 class SplunkDaemon:
