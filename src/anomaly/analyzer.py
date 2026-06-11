@@ -1,5 +1,6 @@
+
 import streamlit as st
-from loguru import logger  
+from loguru import logger
 
 from src.anomaly.detectors import StatisticalDetector, MLDetector
 from src.anomaly.scorer import RiskScorer
@@ -8,6 +9,7 @@ from src.anomaly.models import ThreatEvent
 from src.storage.anomaly_store import AnomalyStore
 from src.intelligence.engine import IntelligenceEngine
 
+
 class AnomalyAnalyzer:
 
     def __init__(self):
@@ -15,14 +17,19 @@ class AnomalyAnalyzer:
         self.intel_engine = IntelligenceEngine()
 
     def analyze_series(self, source: str, values: list):
-        
+
         if not values or len(values) < 10:
-            logger.warning(f"⚠️ Skipping stream {source}: Insufficient data points ({len(values) if values else 0}/10).")
+            logger.warning(
+                f"⚠️ Skipping stream {source}: "
+                f"Insufficient data points "
+                f"({len(values) if values else 0}/10)."
+            )
             return None
 
         # ---------------------------------------------------------
-        # 🕵️ STEP 1: DETECTION LAYER
+        # STEP 1: DETECTION LAYER
         # ---------------------------------------------------------
+
         stat_flag, stat_score = StatisticalDetector.detect_spike(values)
         ml_flag, ml_score = self.ml.detect(values)
 
@@ -30,9 +37,9 @@ class AnomalyAnalyzer:
         severity = RiskScorer.severity(score)
 
         if not stat_flag and not ml_flag:
+            logger.debug(f"No anomaly detected for {source}")
             return None
 
-        # Build Data Payload
         threat = ThreatEvent(
             source=source,
             anomaly_type="VOLUME_SPIKE",
@@ -40,26 +47,50 @@ class AnomalyAnalyzer:
             score=score,
             attack_type=AttackClassifier.classify(values),
             description=f"Automated anomaly detected in {source} log stream.",
-            recommendations=["Investigate raw logs via Splunk queries and correlate source IP profiles."],
-            data_points=int(values[-1])
+            recommendations=[
+                "Investigate raw logs via Splunk queries and correlate source IP profiles."
+            ],
+            data_points=int(values[-1]),
         )
 
-        logger.info(f"🚨 Anomaly Detected | Source: {source} | Severity: {severity} | Score: {score}")
+        logger.info(
+            f"🚨 Anomaly Detected | "
+            f"Source={source} | "
+            f"Severity={severity} | "
+            f"Score={score:.2f}"
+        )
 
         # ---------------------------------------------------------
-        # 💾 STEP 2: PERSISTENCE LAYER
+        # STEP 2: STORE ANOMALY
         # ---------------------------------------------------------
+
         try:
-            AnomalyStore.save(threat.model_dump(mode="json"))
-            logger.success(f"Successfully committed anomaly for {source} to AnomalyStore.")
-        except Exception as db_err:
-            logger.error(f"❌ Failed writing to AnomalyStore: {str(db_err)}")
-            st.error(f"Database Write Failure [AnomalyStore]: {str(db_err)}")
+
+            AnomalyStore.save(
+                threat.model_dump(mode="json")
+            )
+
+            logger.success(
+                f"✅ Successfully committed anomaly "
+                f"for {source} to AnomalyStore."
+            )
+
+        except Exception:
+
+            logger.exception(
+                "❌ Failed writing anomaly to AnomalyStore"
+            )
+
+            try:
+                st.error(
+                    "Database Write Failure [AnomalyStore]"
+                )
+            except Exception:
+                pass
 
         # ---------------------------------------------------------
-        # ⛓️ STEP 3: PIPELINE DEBBUGGER LINK (INTELLIGENCE ENGINE)
+        # STEP 3: INTELLIGENCE PIPELINE
         # ---------------------------------------------------------
-
 
         threat_payload = [threat]
 
@@ -70,9 +101,15 @@ class AnomalyAnalyzer:
             f"Attack={threat.attack_type}"
         )
 
+        logger.debug(
+            f"Payload Type: {type(threat_payload[0])}"
+        )
+
         try:
 
-            reports = self.intel_engine.analyze(threat_payload)
+            reports = self.intel_engine.analyze(
+                threat_payload
+            )
 
             if reports:
 
@@ -90,12 +127,12 @@ class AnomalyAnalyzer:
                         f"Severity={report.severity}"
                     )
 
-                if st.runtime.exists():
+                try:
                     st.toast(
-                        f"🛡️ Intelligence Engine generated "
-                        f"{len(reports)} report(s)",
-                        icon="🛡️"
+                        f"🛡️ Generated {len(reports)} intelligence report(s)"
                     )
+                except Exception:
+                    pass
 
             else:
 
@@ -106,17 +143,17 @@ class AnomalyAnalyzer:
         except Exception as e:
 
             logger.exception(
-                "❌ CRITICAL CRASH inside IntelligenceEngine processing loop!"
+                "❌ CRITICAL CRASH inside IntelligenceEngine"
             )
 
-            if st.runtime.exists():
+            try:
 
                 with st.expander(
-                    "🚨 PIPELINE CRASH: Intelligence Engine Debugger",
+                    "🚨 Intelligence Pipeline Debugger",
                     expanded=True
                 ):
 
-                    st.error(f"Error: {str(e)}")
+                    st.error(str(e))
 
                     st.markdown("### Diagnostics")
 
@@ -144,26 +181,22 @@ class AnomalyAnalyzer:
                             len(threat_payload)
                         )
 
-                    st.markdown("### Payload")
+                    st.markdown("### Payload Type")
 
-                    if hasattr(threat, "model_dump"):
-                        st.json(threat.model_dump(mode="json"))
-                    else:
-                        st.write(threat)    
-            # Surface an interactive visual debugger window directly inside your Streamlit App
-            if st.runtime.exists():
-                with st.expander("🚨 PIPELINE CRASH: Intelligence Engine Debugger", expanded=True):
-                    st.error(f"**Error:** {str(e)}")
-                    st.markdown("### Contextual Diagnostics")
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.metric(label="Target Source", value=source)
-                        st.metric(label="Calculated Severity", value=str(severity))
-                    with col2:
-                        st.metric(label="Calculated Score", value=f"{score:.2f}")
-                        st.metric(label="Payload Size Sent", value=f"{len(threat_payload)} item(s)")
-                    
-                    st.markdown("#### Exact Payload Sent to Engine:")
-                    st.json(threat_payload)
+                    st.code(
+                        str(type(threat_payload[0]))
+                    )
+
+                    st.markdown("### Payload Content")
+
+                    st.json(
+                        threat.model_dump(
+                            mode="json"
+                        )
+                    )
+
+            except Exception:
+                pass
 
         return threat
+
