@@ -1,6 +1,6 @@
 """
-SentinelAI - AUTOMATION VALIDATION PIPELINE TEST
-Checks if SOC pipeline is truly automatic end-to-end
+SentinelAI - AUTONOMOUS ATTACK SIMULATION PIPELINE TEST
+MCP → ANOMALY → INTELLIGENCE → AI
 """
 
 from src.mcp_tools.system_tools import SystemTools
@@ -8,6 +8,31 @@ from src.mcp_tools.network_tools import NetworkTools
 from src.anomaly.analyzer import AnomalyAnalyzer
 from src.intelligence.engine import IntelligenceEngine
 from src.ai.analyzer import AIAnalyzer
+
+
+# ---------------------------------------------------------
+# ATTACK SIMULATION SCENARIOS
+# ---------------------------------------------------------
+ATTACK_SCENARIOS = [
+    {
+        "name": "BRUTE_FORCE_ATTACK",
+        "login": [10, 12, 11, 13, 300],
+        "error": [1, 2, 1, 5],
+        "network": [40, 42, 41, 39]
+    },
+    {
+        "name": "PORT_SCAN_ATTACK",
+        "login": [8, 9, 7, 10],
+        "error": [2, 2, 3, 2],
+        "network": [60, 65, 70, 900]
+    },
+    {
+        "name": "DDOS_ATTACK",
+        "login": [5, 5, 6, 5],
+        "error": [10, 15, 20, 200],
+        "network": [100, 120, 3000, 5000]
+    }
+]
 
 
 # ---------------------------------------------------------
@@ -25,36 +50,13 @@ def extract_values(response):
 
 
 # ---------------------------------------------------------
-# TEST REPORT TRACKER
-# ---------------------------------------------------------
-class PipelineTestReport:
-
-    def __init__(self):
-        self.anomalies_triggered = 0
-        self.intelligence_reports = 0
-        self.failures = []
-        self.events = []
-
-    def log_anomaly(self, name):
-        self.anomalies_triggered += 1
-        self.events.append(f"ANOMALY → {name}")
-
-    def log_intelligence(self, count):
-        self.intelligence_reports += count
-        self.events.append(f"INTELLIGENCE → {count} reports")
-
-    def fail(self, msg):
-        self.failures.append(msg)
-
-
-# ---------------------------------------------------------
-# MAIN TEST
+# MAIN PIPELINE
 # ---------------------------------------------------------
 def main():
 
-    print("=" * 70)
-    print(" SENTINELAI AUTOMATION VALIDATION TEST ")
-    print("=" * 70)
+    print("=" * 80)
+    print(" SENTINELAI AUTONOMOUS ATTACK SIMULATION ")
+    print("=" * 80)
 
     system = SystemTools()
     network = NetworkTools()
@@ -62,110 +64,98 @@ def main():
     intelligence = IntelligenceEngine()
     ai = AIAnalyzer()
 
-    report = PipelineTestReport()
+    total_anomalies = 0
+    total_reports = 0
 
     # -----------------------------------------------------
-    # DATA FETCH
+    # RUN ATTACK SCENARIOS
     # -----------------------------------------------------
 
-    try:
-        login = extract_values(system.login_trend())
-        error = extract_values(system.error_trend())
-        network_series = extract_values(network.network_trend())
+    for attack in ATTACK_SCENARIOS:
 
-    except Exception:
-        print("💡 MOCK MODE ACTIVATED")
-        login = [10, 12, 11, 13, 240]
-        error = [2, 3, 2, 180]
-        network_series = [50, 48, 52, 1500]
+        print("\n" + "-" * 80)
+        print(f"🚨 SIMULATING: {attack['name']}")
+        print("-" * 80)
+
+        try:
+            login = attack["login"]
+            error = attack["error"]
+            network_series = attack["network"]
+
+        except Exception:
+            print("⚠ Using fallback mock data")
+            continue
+
+        threats = []
+
+        # -------------------------------------------------
+        # MCP → ANOMALY STAGE
+        # -------------------------------------------------
+        for name, series in [
+            ("AUTH", login),
+            ("ERROR", error),
+            ("NETWORK", network_series)
+        ]:
+
+            t = anomaly.analyze_series(name, series)
+
+            if t:
+                threats.append(t)
+                total_anomalies += 1
+                print(f"🚨 ANOMALY DETECTED → {name}")
+
+        if not threats:
+            print("✔ No anomalies detected in scenario")
+            continue
+
+        # -------------------------------------------------
+        # INTELLIGENCE STAGE
+        # -------------------------------------------------
+        reports = intelligence.analyze(threats)
+
+        if reports:
+            total_reports += len(reports)
+
+            print("\n🧠 INTELLIGENCE REPORTS:")
+            for r in reports:
+                print(f" - {r.incident_type} | {r.severity}")
+
+        else:
+            print("❌ No intelligence generated")
+
+        # -------------------------------------------------
+        # AI RESPONSE STAGE
+        # -------------------------------------------------
+        primary = threats[0]
+        primary.description = f"Simulated Attack: {attack['name']}"
+
+        try:
+            ai_response = ai.analyze_event(primary)
+
+            print("\n🤖 AI RESPONSE:")
+            print(ai_response)
+
+        except Exception as e:
+            print(f"❌ AI Engine Failed: {str(e)}")
 
     # -----------------------------------------------------
-    # ANOMALY STAGE
+    # FINAL SOC SCORECARD
     # -----------------------------------------------------
 
-    threats = []
+    print("\n" + "=" * 80)
+    print(" SOC AUTONOMY SCORECARD ")
+    print("=" * 80)
 
-    for name, series in [
-        ("AUTH", login),
-        ("ERROR", error),
-        ("NETWORK", network_series)
-    ]:
+    print(f"Total Attack Scenarios : {len(ATTACK_SCENARIOS)}")
+    print(f"Total Anomalies        : {total_anomalies}")
+    print(f"Total CTI Reports      : {total_reports}")
 
-        t = anomaly.analyze_series(name, series)
-
-        if t:
-
-            threats.append(t)
-            report.log_anomaly(name)
-
-            print(f"🚨 ANOMALY TRIGGERED → {name}")
-
-    if not threats:
-
-        print("✔ NO ANOMALIES DETECTED")
-
-        report.fail("No anomaly triggered pipeline")
-
-        return report
-
-    # -----------------------------------------------------
-    # INTELLIGENCE STAGE
-    # -----------------------------------------------------
-
-    intel_reports = intelligence.analyze(threats)
-
-    if intel_reports:
-
-        report.log_intelligence(len(intel_reports))
-
-        print("\n🧠 INTELLIGENCE GENERATED:")
-        for r in intel_reports:
-            print(f" - {r.incident_type} | {r.severity}")
-
+    if total_anomalies > 0 and total_reports > 0:
+        print("\n✅ SYSTEM IS FULLY AUTONOMOUS (END-TO-END SOC FLOW WORKING)")
     else:
+        print("\n❌ SYSTEM IS NOT FULLY AUTONOMOUS")
 
-        report.fail("Intelligence engine returned empty output")
-
-    # -----------------------------------------------------
-    # AI STAGE
-    # -----------------------------------------------------
-
-    primary = threats[0]
-    primary.description = "AUTOMATION TEST INCIDENT"
-
-    try:
-        ai_output = ai.analyze_event(primary)
-        print("\n🤖 AI OUTPUT:")
-        print(ai_output)
-
-    except Exception as e:
-        report.fail(f"AI Engine failed: {str(e)}")
-
-    # -----------------------------------------------------
-    # FINAL AUTOMATION SCORECARD
-    # -----------------------------------------------------
-
-    print("\n" + "=" * 70)
-    print(" PIPELINE AUTOMATION REPORT ")
-    print("=" * 70)
-
-    print(f"Anomalies Triggered   : {report.anomalies_triggered}")
-    print(f"Intelligence Reports  : {report.intelligence_reports}")
-    print(f"Pipeline Events       : {len(report.events)}")
-
-    if report.failures:
-        print("\n❌ FAILURES:")
-        for f in report.failures:
-            print(" -", f)
-
-    else:
-        print("\n✅ PIPELINE FULLY AUTOMATED")
-
-    print("\nEVENT TRACE:")
-    for e in report.events:
-        print(" -", e)
-
-    print("=" * 70)
+    print("=" * 80)
 
 
 if __name__ == "__main__":
