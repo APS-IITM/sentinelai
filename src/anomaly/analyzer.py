@@ -24,7 +24,7 @@ class AnomalyAnalyzer:
 
         score = RiskScorer.calculate(stat_score, ml_score)
         
-        
+        # Extract the highest underlying severity from the batch
         if events and any(isinstance(e, dict) and e.get("severity") for e in events):
             severity_order = {"LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4}
             found_severities = [
@@ -39,8 +39,8 @@ class AnomalyAnalyzer:
             logger.debug(f"No anomaly detected for {source}")
             return None
 
-        # Calculate exact category vector label
-        attack_type = AttackClassifier.classify(values)
+        # 🎯 FIX: Pass the events array into the classifier to check signatures
+        attack_type = AttackClassifier.classify(values, events=events)
 
         last_event = None
         if events and len(events) > 0:
@@ -48,7 +48,6 @@ class AnomalyAnalyzer:
 
         threat = ThreatEvent(
             source=source,
-            # 🎯 FIX 2: Bind the dynamic classification tag straight to the core type attribute!
             anomaly_type=attack_type if attack_type != "UNKNOWN_TRAFFIC" else "VOLUME_SPIKE",
             severity=severity,
             score=score,
@@ -56,7 +55,7 @@ class AnomalyAnalyzer:
             description=f"Automated threat classification system flagged {attack_type} vector on channel [{source}].",
             recommendations=[
                 "Investigate logs and correlate IP patterns",
-                "Deploy firewall rule mitigations if source volume remains unstable"
+                "Deploy structural firewall rules if source volume remains unstable"
             ],
             data_points=int(values[-1]),
             metadata={
