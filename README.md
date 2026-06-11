@@ -91,24 +91,18 @@ SentinelAI uses Splunk as its primary telemetry and security data source.
 
 ---
 
-# 🏗️ Architecture Diagram
+## 🏗️ Architecture Diagram
 
-> Include an image named:
+![SentinelAI Architecture Diagram](docs/architecture.png)
 
-```text
-docs/architecture.png
-```
-
-The architecture diagram should illustrate:
-
-* Splunk Enterprise
-* Splunk MCP Server
-* SentinelAI Intelligence Engine
-* Anomaly Detection Layer
-* Supabase Database
-* Streamlit Dashboard
-* AI Agents
-* Data Flow Between Components
+### Component Overview & Data Flow
+* **Splunk Enterprise SIEM:** Feeds raw security telemetry into the data pipeline.
+* **Autonomous Data Daemon (`splunk_daemon.py`):** Ingests telemetry data and routes it appropriately.
+* **Anomaly Detection Layer:** Processes incoming data through the *Z-Score Statistical Core* and *Isolation Forest ML Model* to flag anomalies.
+* **SentinelAI Intelligence Engine:** Maps identified anomalies to specific security threats.
+* **Supabase Database:** Serves as the central data mesh ledger repository for all state and event data.
+* **Splunk MCP Server:** Interactively interfaces with the **AI Hunt Agents** for live tasking and investigative results.
+* **Streamlit Dashboard:** Provides a dual-purpose frontend split into an *Attack Simulator Front-end* and a *Real-time Security Console*.
 
 ---
 
