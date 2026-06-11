@@ -180,6 +180,7 @@ sentinelai/
 │
 ├── main.py
 ├── app.py
+├── splunk_daemon.py
 ├── requirements.txt
 ├── README.md
 ├── LICENSE
@@ -193,7 +194,6 @@ sentinelai/
 │   ├── simulator/
 │   ├── storage/
 │   ├── mcp_tools/
-│   └── daemon/
 │
 └── assets/
     ├── screenshots/
