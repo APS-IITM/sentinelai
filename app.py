@@ -18,7 +18,7 @@ def start_background_soc_daemon():
     daemon_script = os.path.join(
         base_dir,
         "src",
-        "anomaly",
+        "splunk",
         "splunk_daemon.py"
     )
 

@@ -8,10 +8,10 @@ Splunk -> MCP Store -> Anomaly Engine -> Intelligence Engine
 import time
 from loguru import logger
 
-from mcp_tools.auth_tools import AuthTools
-from mcp_tools.network_tools import NetworkTools
-from mcp_tools.security_tools import SecurityTools
-from mcp_tools.system_tools import SystemTools
+from src.mcp_tools.auth_tools import AuthTools
+from src.mcp_tools.network_tools import NetworkTools
+from src.mcp_tools.security_tools import SecurityTools
+from src.mcp_tools.system_tools import SystemTools
 
 from src.anomaly.analyzer import AnomalyAnalyzer
 from src.intelligence.engine import IntelligenceEngine
