@@ -12,62 +12,77 @@ from src.storage.supabase_loader import save_anomaly
 st.set_page_config(page_title="SOC War Room", layout="wide")
 
 st.markdown("""
-<style>
-body {
-    background-color: #0b0f19;
-}
+    <style>
 
-.soc-title {
-    font-size: 28px;
-    font-weight: 700;
-    color: #ff3b3b;
-    letter-spacing: 1px;
-}
+    .card {
+        padding: 18px;
+        border-radius: 14px;
+        border: 1px solid rgba(0,0,0,0.08);
+        box-shadow: 0 4px 18px rgba(0,0,0,0.06);
+        transition: 0.25s ease-in-out;
+        background: white;
+    }
 
-.sub {
-    color: #aaa;
-    font-size: 13px;
-}
+    .card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 28px rgba(0,0,0,0.12);
+    }
 
-.card {
-    background: linear-gradient(145deg, #111827, #0f172a);
-    padding: 18px;
-    border-radius: 12px;
-    border: 1px solid #1f2937;
-    box-shadow: 0 0 15px rgba(255, 0, 0, 0.05);
-    transition: 0.3s;
-}
+    /* TITLES */
+    .attack-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #111;
+    }
 
-.card:hover {
-    transform: scale(1.02);
-    border: 1px solid #ff3b3b;
-}
+    /* BADGES */
+    .badge {
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+    }
 
-.attack-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: white;
-}
+    .low { background: #dcfce7; color: #166534; }
+    .med { background: #fef9c3; color: #854d0e; }
+    .high { background: #ffedd5; color: #9a3412; }
+    .crit { background: #fee2e2; color: #991b1b; }
 
-.badge {
-    padding: 3px 8px;
-    border-radius: 6px;
-    font-size: 12px;
-    display: inline-block;
-}
+    /* ATTACK TYPE SKINS */
+    .brute {
+        border-left: 5px solid #3b82f6;
+        background: linear-gradient(135deg, #eff6ff, #ffffff);
+    }
 
-.low { background: #16a34a; color: white; }
-.med { background: #eab308; color: black; }
-.high { background: #f97316; color: white; }
-.crit { background: #dc2626; color: white; }
+    .ddos {
+        border-left: 5px solid #8b5cf6;
+        background: linear-gradient(135deg, #f5f3ff, #ffffff);
+    }
 
-.glow {
-    color: #ff3b3b;
-    text-shadow: 0 0 10px rgba(255,0,0,0.6);
-}
-</style>
-""", unsafe_allow_html=True)
+    .scan {
+        border-left: 5px solid #10b981;
+        background: linear-gradient(135deg, #ecfdf5, #ffffff);
+    }
 
+    .error {
+        border-left: 5px solid #f59e0b;
+        background: linear-gradient(135deg, #fffbeb, #ffffff);
+    }
+
+    .glow {
+        font-weight: 700;
+    }
+
+    </style>
+    """, unsafe_allow_html=True)
+
+def attack_style(attack_type):
+    return {
+        "brute_force": "brute",
+        "ddos": "ddos",
+        "port_scan": "scan",
+        "error_storm": "error"
+    }.get(attack_type, "")
 # =========================
 # HEADER
 # =========================
@@ -100,18 +115,21 @@ st.markdown("### ⚔️ Attack Simulation Grid")
 col1, col2 = st.columns(2)
 
 def attack_card(title, attack_type, description, col):
+
+    style = attack_style(attack_type)
+
     with col:
         st.markdown(f"""
-        <div class="card">
+        <div class="card {style}">
             <div class="attack-title">{title}</div>
-            <p style="color:#9ca3af; font-size:13px;">
+            <p style="color:#555; font-size:13px;">
                 {description}
             </p>
         </div>
         """, unsafe_allow_html=True)
 
         if st.button(f"DEPLOY {title}", key=attack_type):
-            with st.spinner("Deploying simulated threat vector..."):
+            with st.spinner("Deploying threat vector..."):
                 result = engine.launch_attack(attack_type)
                 sev = random_severity()
 
@@ -123,7 +141,7 @@ def attack_card(title, attack_type, description, col):
                     "created_at": str(datetime.now())
                 })
 
-                st.success(f"VECTOR DEPLOYED → {result['events']} events | {sev}")
+                st.success(f"{title} → {result['events']} events | {sev}")
 
 # LEFT COLUMN
 attack_card(
