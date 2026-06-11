@@ -31,6 +31,6 @@ if "id" in df.columns:
                 self.description = r.get("description", "")
                 self.data_points = r.get("data_points", 0)
 
-        result = main.generate_ai_for_threat(Wrap(row))
+        result = main.generate_ai_report(Wrap(row))
 
         st.markdown(result)
