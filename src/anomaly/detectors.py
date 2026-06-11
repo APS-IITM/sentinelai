@@ -16,7 +16,9 @@ class StatisticalDetector:
             return False, 0
 
         z_scores = zscore(series)
-        latest_z = abs(z_scores.iloc[-1]) # Safe indexing for pandas Series
+        
+        # 🎯 FIX: Changed z_scores.iloc[-1] to z_scores[-1] because zscore() returns a NumPy Array!
+        latest_z = abs(z_scores[-1]) 
 
         if np.isnan(latest_z):
             return False, 0
@@ -41,10 +43,10 @@ class MLDetector:
         data = np.array(values, dtype=float).reshape(-1, 1)
 
         try:
-            # 🧼 FIX: Train strictly on historical baseline indexes
+            # 🧼 Train strictly on historical baseline indexes
             self.model.fit(data[:-1])
             
-            # 🎯 FIX: Predict exclusively on the latest metric event
+            # 🎯 Predict exclusively on the latest metric event
             prediction = self.model.predict(data[-1:])
             
             is_anomaly = bool(prediction[0] == -1)
