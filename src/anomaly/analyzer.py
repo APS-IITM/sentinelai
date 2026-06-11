@@ -23,12 +23,23 @@ class AnomalyAnalyzer:
         ml_flag, ml_score = self.ml.detect(values)
 
         score = RiskScorer.calculate(stat_score, ml_score)
-        severity = RiskScorer.severity(score)
+        
+        
+        if events and any(isinstance(e, dict) and e.get("severity") for e in events):
+            severity_order = {"LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4}
+            found_severities = [
+                str(e.get("severity")).upper() 
+                for e in events if isinstance(e, dict) and e.get("severity")
+            ]
+            severity = max(found_severities, key=lambda s: severity_order.get(s, 1))
+        else:
+            severity = RiskScorer.severity(score)
 
         if not stat_flag and not ml_flag:
             logger.debug(f"No anomaly detected for {source}")
             return None
 
+        # Calculate exact category vector label
         attack_type = AttackClassifier.classify(values)
 
         last_event = None
@@ -37,17 +48,17 @@ class AnomalyAnalyzer:
 
         threat = ThreatEvent(
             source=source,
-            anomaly_type="VOLUME_SPIKE",
+            # 🎯 FIX 2: Bind the dynamic classification tag straight to the core type attribute!
+            anomaly_type=attack_type if attack_type != "UNKNOWN_TRAFFIC" else "VOLUME_SPIKE",
             severity=severity,
             score=score,
             attack_type=attack_type,
-            description=f"Anomaly detected in {source}",
+            description=f"Automated threat classification system flagged {attack_type} vector on channel [{source}].",
             recommendations=[
-                "Investigate logs and correlate IP patterns"
+                "Investigate logs and correlate IP patterns",
+                "Deploy firewall rule mitigations if source volume remains unstable"
             ],
             data_points=int(values[-1]),
-
-            
             metadata={
                 "sample_event": last_event,
                 "series_length": len(values),
@@ -56,13 +67,11 @@ class AnomalyAnalyzer:
             }
         )
 
-        logger.info(
-            f"🚨 Anomaly | Source={source} | Severity={severity}"
-        )
+        logger.info(f"🚨 Anomaly Detected | Source={source} | Type={attack_type} | Severity={severity}")
 
         try:
             AnomalyStore.save(threat.model_dump(mode="json"))
         except Exception as e:
-            logger.error(f"DB error: {e}")
+            logger.error(f"DB error writing threat log event context row: {e}")
 
         return threat
