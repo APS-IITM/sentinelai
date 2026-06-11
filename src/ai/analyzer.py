@@ -51,7 +51,7 @@ Generate a SOC intelligence report including:
             )
 
             # -------------------------------------------------
-            # ✅ SAVE VIA AIReportStore (FIXED HERE)
+            # ✅ SAVE VIA AIReportStore
             # -------------------------------------------------
             AIReportStore.save(report.model_dump(mode="json"))
 
@@ -61,9 +61,15 @@ Generate a SOC intelligence report including:
             raise RuntimeError(f"AI report generation failed: {e}")
 
     # -----------------------------------------------------
-    # SINGLE EVENT FORENSIC ANALYSIS
+    # SINGLE EVENT FORENSIC ANALYSIS 
     # -----------------------------------------------------
     def analyze_event(self, event):
+
+        source = getattr(event, 'source', 'UNKNOWN')
+        attack_type = getattr(event, 'attack_type', 'UNKNOWN')
+        severity = getattr(event, 'severity', 'LOW')
+        description = getattr(event, 'description', '')
+        data_points = getattr(event, 'data_points', 0)
 
         prompt = f"""
 {SYSTEM_PROMPT}
@@ -72,11 +78,11 @@ Generate a SOC intelligence report including:
 SINGLE EVENT FORENSIC ANALYSIS
 ======================================================
 
-Source: {getattr(event, 'source', 'UNKNOWN')}
-Attack Type: {getattr(event, 'attack_type', 'UNKNOWN')}
-Severity: {getattr(event, 'severity', 'LOW')}
-Description: {getattr(event, 'description', '')}
-Data Points: {getattr(event, 'data_points', 0)}
+Source: {source}
+Attack Type: {attack_type}
+Severity: {severity}
+Description: {description}
+Data Points: {data_points}
 
 Provide:
 - root cause
@@ -86,7 +92,24 @@ Provide:
 
         try:
             response = model.generate_content(prompt)
-            return response.text
+            generated_text = response.text
+
+            # -------------------------------------------------
+            # ✅ FIX: BUILD AND SAVE REPORT TO SUPABASE
+            # -------------------------------------------------
+            report = AIReport(
+                source_type=f"single_{str(source).lower()}",
+                event_count=1,
+                highest_severity=severity,
+                summary=f"Forensic snapshot for {attack_type} vector on {source}.",
+                generated_report=generated_text
+            )
+            
+            # Save the record structure down to the cloud table mapping
+            AIReportStore.save(report.model_dump(mode="json"))
+
+            # Return the text string so threat_monitor.py can render it smoothly
+            return generated_text
 
         except Exception as e:
             raise RuntimeError(f"AI single-event analysis failed: {e}")
