@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from app_pages.ui_components.supabase_loader import get_intel_reports
+from src.storage.supabase_loader import get_intel_reports
 
 st.title("🧭 Intelligence Center")
 st.caption("Correlate active threat profiles using pre-evaluated data streams")

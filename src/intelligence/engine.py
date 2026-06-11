@@ -1,4 +1,3 @@
-
 from loguru import logger
 
 from src.intelligence.models import IntelligenceReport
@@ -11,393 +10,63 @@ from src.storage.intelligence_store import IntelligenceStore
 
 class IntelligenceEngine:
 
-    SEVERITY_WEIGHTS = {
-        "LOW": 1,
-        "MEDIUM": 2,
-        "HIGH": 3,
-        "CRITICAL": 4
-    }
-
-    RECOMMENDATION_PLAYBOOKS = {
-
-        "PORT_SCAN": [
-            "Deploy progressive firewall drop rules against the source IP network block.",
-            "Disable unnecessary exposed listener ports on edge infrastructure.",
-            "Verify network access control lists (ACLs) follow a zero-trust policy."
-        ],
-
-        "BRUTE_FORCE": [
-            "Temporarily lock out target corporate user accounts experiencing systemic failures.",
-            "Enforce immediate Multi-Factor Authentication (MFA) challenges across active sessions.",
-            "Correlate geolocational signatures of incoming traffic streams."
-        ],
-
-        "DOS_ATTACK": [
-            "Engage upstream cloud scrubbing centers or CDN rate-limiting rule profiles.",
-            "Enable aggressive TCP intercept and SYN-cookie protections on edge devices.",
-            "Isolate non-essential public-facing application endpoint nodes."
-        ],
-
-        "RECON_TO_CREDENTIAL_ATTACK": [
-            "Block reconnaissance sources immediately.",
-            "Enable MFA enforcement.",
-            "Review authentication telemetry."
-        ],
-
-        "RECON_TO_DDOS": [
-            "Activate DDoS protection controls.",
-            "Review firewall telemetry.",
-            "Rate-limit suspicious traffic sources."
-        ],
-
-        "MULTI_STAGE_ATTACK": [
-            "Escalate to SOC analysts immediately.",
-            "Review full attack chain telemetry.",
-            "Contain affected systems."
-        ],
-
-        "DEFAULT": [
-            "Isolate highly affected target infrastructure systems from local subnets.",
-            "Audit access logs across surrounding directories for lateral movement signatures.",
-            "Perform comprehensive full-stack security telemetry scans immediately."
-        ]
-    }
-
-    @staticmethod
-    def _get_val(obj, key, default=None):
-
+    def _get(self, obj, key, default=None):
         if isinstance(obj, dict):
             return obj.get(key, default)
-
         return getattr(obj, key, default)
 
     def analyze(self, events):
 
-        logger.info("=" * 80)
-        logger.info("🧠 IntelligenceEngine Execution Started")
-        logger.info("=" * 80)
+        logger.info("🧠 Intelligence Engine Started")
 
         if not events:
-
-            logger.warning(
-                "⚠️ IntelligenceEngine received empty event list."
-            )
-
             return []
 
-        logger.info(
-            f"📥 Received {len(events)} event(s)"
-        )
+        reports = []
 
-        logger.info(
-            f"📦 Event Type: {type(events[0])}"
-        )
+        severities = {
+            str(self._get(e, "severity", "LOW")).upper()
+            for e in events
+        }
 
-        logger.debug(
-            f"📦 First Event Content: {events[0]}"
-        )
+        for severity in severities:
 
-        reports_generated = []
-
-        try:
-
-            unique_severities = {
-
-                str(
-                    self._get_val(
-                        event,
-                        "severity",
-                        "LOW"
-                    )
-                ).upper()
-
-                for event in events
-            }
-
-            logger.info(
-                f"🎯 Severity Groups Detected: "
-                f"{list(unique_severities)}"
-            )
-
-        except Exception:
-
-            logger.exception(
-                "❌ Failed calculating severity groups."
-            )
-
-            return []
-
-        for target_severity in unique_severities:
-
-            logger.info(
-                f"🔍 Processing Severity Group: "
-                f"{target_severity}"
-            )
-
-            severity_events = [
-
-                event
-
-                for event in events
-
-                if str(
-                    self._get_val(
-                        event,
-                        "severity",
-                        "LOW"
-                    )
-                ).upper() == target_severity
+            group = [
+                e for e in events
+                if str(self._get(e, "severity", "LOW")).upper() == severity
             ]
 
-            logger.info(
-                f"📊 Events in group: "
-                f"{len(severity_events)}"
-            )
-
-            if not severity_events:
-
-                logger.warning(
-                    f"⚠️ No events found for "
-                    f"{target_severity}"
-                )
-
+            if not group:
                 continue
 
-            logger.info(
-                "🔬 Event Breakdown:"
+            incident_type, confidence = EventCorrelator.correlate(group)
+
+            timeline = TimelineBuilder.build(group)
+
+            mitre = []
+            for e in group:
+                mitre.extend(
+                    MitreMapper.map_attack(
+                        self._get(e, "attack_type", "UNKNOWN")
+                    )
+                )
+
+            mitre = sorted(set(mitre))
+
+            story = StoryGenerator.generate(group, incident_type)
+
+            report = IntelligenceReport(
+                incident_type=incident_type,
+                severity=severity,
+                attack_story=story,
+                timeline=timeline,
+                mitre_techniques=mitre,
+                recommendations=[],
+                event_count=len(group)
             )
 
-            for event in severity_events:
+            IntelligenceStore.save(report.model_dump(mode="json"))
 
-                logger.debug(
-                    f"Source={self._get_val(event, 'source')} | "
-                    f"Attack={self._get_val(event, 'attack_type')} | "
-                    f"Severity={self._get_val(event, 'severity')} | "
-                    f"Score={self._get_val(event, 'score')}"
-                )
+            reports.append(report)
 
-            # --------------------------------------------------
-            # CORRELATION
-            # --------------------------------------------------
-
-            try:
-
-                logger.info(
-                    f"⚡ Correlating "
-                    f"{len(severity_events)} event(s)"
-                )
-
-                incident_type, confidence = (
-                    EventCorrelator.correlate(
-                        severity_events
-                    )
-                )
-
-                logger.success(
-                    f"🎯 Correlation Result: "
-                    f"{incident_type} "
-                    f"({confidence}% confidence)"
-                )
-
-            except Exception:
-
-                logger.exception(
-                    "❌ EventCorrelator failed."
-                )
-
-                continue
-
-            # --------------------------------------------------
-            # TIMELINE
-            # --------------------------------------------------
-
-            try:
-
-                logger.info(
-                    "🕒 Building timeline..."
-                )
-
-                timeline = TimelineBuilder.build(
-                    severity_events
-                )
-
-                logger.success(
-                    f"✅ Timeline Built "
-                    f"({len(timeline)} entries)"
-                )
-
-            except Exception:
-
-                logger.exception(
-                    "❌ TimelineBuilder failed."
-                )
-
-                continue
-
-            # --------------------------------------------------
-            # MITRE ATT&CK
-            # --------------------------------------------------
-
-            try:
-
-                logger.info(
-                    "🎯 Mapping MITRE ATT&CK techniques..."
-                )
-
-                mitre = []
-
-                for event in severity_events:
-
-                    attack_type = self._get_val(
-                        event,
-                        "attack_type",
-                        "UNKNOWN"
-                    )
-
-                    logger.debug(
-                        f"MITRE Mapping -> "
-                        f"{attack_type}"
-                    )
-
-                    mitre.extend(
-                        MitreMapper.map_attack(
-                            attack_type
-                        )
-                    )
-
-                mitre = sorted(
-                    list(set(mitre))
-                )
-
-                logger.success(
-                    f"✅ MITRE Techniques: "
-                    f"{mitre}"
-                )
-
-            except Exception:
-
-                logger.exception(
-                    "❌ MITRE Mapping failed."
-                )
-
-                mitre = []
-
-            # --------------------------------------------------
-            # STORY GENERATION
-            # --------------------------------------------------
-
-            try:
-
-                logger.info(
-                    "📖 Generating attack narrative..."
-                )
-
-                story = StoryGenerator.generate(
-                    severity_events,
-                    incident_type
-                )
-
-                logger.success(
-                    "✅ Story generated."
-                )
-
-            except Exception:
-
-                logger.exception(
-                    "❌ Story generation failed."
-                )
-
-                story = (
-                    "Automated incident narrative "
-                    "generation failed."
-                )
-
-            # --------------------------------------------------
-            # RECOMMENDATIONS
-            # --------------------------------------------------
-
-            dynamic_recommendations = (
-                self.RECOMMENDATION_PLAYBOOKS.get(
-                    incident_type,
-                    self.RECOMMENDATION_PLAYBOOKS[
-                        "DEFAULT"
-                    ]
-                )
-            )
-
-            # --------------------------------------------------
-            # REPORT CREATION
-            # --------------------------------------------------
-
-            try:
-
-                report = IntelligenceReport(
-                    incident_type=incident_type,
-                    severity=target_severity,
-                    attack_story=story,
-                    timeline=timeline,
-                    mitre_techniques=mitre,
-                    recommendations=dynamic_recommendations,
-                    event_count=len(
-                        severity_events
-                    )
-                )
-
-                logger.success(
-                    f"📄 Generated Report "
-                    f"{report.report_id}"
-                )
-
-            except Exception:
-
-                logger.exception(
-                    "❌ IntelligenceReport construction failed."
-                )
-
-                continue
-
-            # --------------------------------------------------
-            # STORAGE
-            # --------------------------------------------------
-
-            try:
-
-                payload = report.model_dump(
-                    mode="json"
-                )
-
-                logger.debug(
-                    f"💾 Report Payload: "
-                    f"{payload}"
-                )
-
-                IntelligenceStore.save(
-                    payload
-                )
-
-                logger.success(
-                    f"✅ Saved Report "
-                    f"{report.report_id}"
-                )
-
-            except Exception:
-
-                logger.exception(
-                    "❌ Failed to save IntelligenceReport."
-                )
-
-            reports_generated.append(
-                report
-            )
-
-        logger.info("=" * 80)
-
-        logger.success(
-            f"🏁 IntelligenceEngine completed. "
-            f"Generated {len(reports_generated)} report(s)."
-        )
-
-        logger.info("=" * 80)
-
-        return reports_generated
-
+        return reports

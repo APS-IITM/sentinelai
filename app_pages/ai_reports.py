@@ -1,7 +1,7 @@
 #ai_reports.py
 import streamlit as st
 import pandas as pd
-from app_pages.ui_components.supabase_loader import get_ai_reports
+from src.storage.supabase_loader import get_ai_reports
 from src.ai.analyzer import AIAnalyzer
 
 st.title("🧠 AI Analytics Reports Command")

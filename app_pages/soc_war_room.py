@@ -5,7 +5,7 @@ from datetime import datetime
 
 from src.simulator.engine import AttackEngine
 from src.simulator.state import AttackState
-from app_pages.ui_components.supabase_loader import save_anomaly
+from src.storage.supabase_loader import save_anomaly
 
 
 st.title("🟥 SOC WAR ROOM")

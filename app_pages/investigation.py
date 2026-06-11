@@ -1,7 +1,7 @@
 #investigation.py
 import streamlit as st
 import pandas as pd
-from app_pages.ui_components.supabase_loader import get_mcp
+from src.storage.supabase_loader import get_mcp
 
 st.title("🧰 Investigation Console")
 st.caption("Examine localized subsets across microservice configuration tables")

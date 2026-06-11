@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 import random 
 
-from app_pages.ui_components.supabase_loader import (
+from src.storage.supabase_loader import (
     get_anomalies,
     get_intel_reports
 )
