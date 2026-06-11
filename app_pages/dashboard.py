@@ -56,7 +56,18 @@ if not df.empty:
     atk = df["attack_type"].value_counts().reset_index()
     atk.columns = ["attack_type", "count"]
 
-    fig2 = px.bar(atk, x="attack_type", y="count", text="count")
+ 
+    fig2 = px.bar(
+        atk, 
+        x="attack_type", 
+        y="count", 
+        text="count",
+        color="attack_type"
+    )
+
+    # Optional: Clean up the layout by hiding the redundant legend if you want
+    fig2.update_layout(showlegend=False)
+
     st.plotly_chart(fig2, use_container_width=True)
 
 st.markdown("---")
