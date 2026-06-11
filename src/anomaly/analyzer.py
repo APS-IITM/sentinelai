@@ -39,7 +39,6 @@ class AnomalyAnalyzer:
             logger.debug(f"No anomaly detected for {source}")
             return None
 
-        # 🎯 FIX: Pass the events array into the classifier to check signatures
         attack_type = AttackClassifier.classify(values, events=events)
 
         last_event = None
