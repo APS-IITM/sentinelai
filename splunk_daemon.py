@@ -57,28 +57,27 @@ class SplunkDaemon:
         except Exception as e:
             logger.error(f"System collection failed: {e}")
 
-        # 2. SIMULATOR STREAM INTERCEPTOR PIPELINE
-        # Reads file-based streams written by the UI frontend
-        if os.path.exists(SIMULATOR_LOG_PATH):
-            try:
-                with open(SIMULATOR_LOG_PATH, "r+", encoding="utf-8") as f:
-                    lines = f.readlines()
-                    for line in lines:
-                        if not line.strip():
-                            continue
-                        try:
-                            parsed_event = json.loads(line)
-                            events.append(parsed_event)
-                        except json.JSONDecodeError:
-                            continue
-                    
-                    # Truncate/wipe log file immediately after successful ingest 
-                    # to prevent duplicate anomaly triggers on subsequent cycles
-                    f.seek(0)
-                    f.truncate()
-                logger.info(f"Ingested simulated attack vector records from {SIMULATOR_LOG_PATH}")
-            except Exception as e:
-                logger.error(f"Error extracting simulation log stream: {e}")
+        # 2. SUPABASE STORE QUEUE COLLECTION (REPLACES LOCAL FILE STREAM)
+        try:
+            from src.storage.attack_log_store import AttackLogStore
+            
+            # Fetch all active attack scenarios currently waiting in the cloud table queue
+            cloud_logs = AttackLogStore.get_all()
+
+            if cloud_logs:
+                logger.info(f"Ingested {len(cloud_logs)} raw simulation logs from Supabase.")
+                events.extend(cloud_logs)
+
+                # Isolate the exact record IDs processed during this loop pass
+                processed_ids = [row["id"] for row in cloud_logs if "id" in row]
+                
+                if processed_ids:
+                    # Wipe out exclusively what we read, preserving any entries added mid-cycle
+                    AttackLogStore.delete_batch(processed_ids)
+                    logger.info(f"Successfully flushed {len(processed_ids)} processed simulation records from cloud queue.")
+
+        except Exception as e:
+            logger.error(f"Error accessing Supabase cloud simulation log store pipeline: {e}")
 
         return events
 
