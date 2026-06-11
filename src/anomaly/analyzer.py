@@ -59,26 +59,98 @@ class AnomalyAnalyzer:
         # ---------------------------------------------------------
         # ⛓️ STEP 3: PIPELINE DEBBUGGER LINK (INTELLIGENCE ENGINE)
         # ---------------------------------------------------------
-        threat_payload = [threat.model_dump(mode="json")] if hasattr(threat, "model_dump") else [threat]
+        
 
-        logger.debug(f"⚡ Cascading anomaly payload to IntelligenceEngine: {threat_payload}")
+
+        threat_payload = [threat]
+
+        logger.debug(
+            f"⚡ Sending ThreatEvent to IntelligenceEngine | "
+            f"Source={threat.source} | "
+            f"Severity={threat.severity} | "
+            f"Attack={threat.attack_type}"
+        )
 
         try:
-            # Execute CTI analysis
-            report = self.intel_engine.analyze(threat_payload)
-            
-            if report:
-                logger.success(f"✅ IntelligenceEngine successfully generated CTI Report ID: {getattr(report, 'report_id', 'N/A')}")
-                # Optional: Render runtime updates on the Streamlit dashboard if live
+
+            reports = self.intel_engine.analyze(threat_payload)
+
+            if reports:
+
+                logger.success(
+                    f"✅ IntelligenceEngine generated "
+                    f"{len(reports)} report(s)"
+                )
+
+                for report in reports:
+
+                    logger.info(
+                        f"📄 CTI Report | "
+                        f"ID={report.report_id} | "
+                        f"Type={report.incident_type} | "
+                        f"Severity={report.severity}"
+                    )
+
                 if st.runtime.exists():
-                    st.toast(f"ℹ️ CTI Engine Compiled {severity} Threat Report!", icon="🛡️")
+                    st.toast(
+                        f"🛡️ Intelligence Engine generated "
+                        f"{len(reports)} report(s)",
+                        icon="🛡️"
+                    )
+
             else:
-                logger.warning("⚠️ IntelligenceEngine completed execution but returned an empty report.")
-                
+
+                logger.warning(
+                    "⚠️ IntelligenceEngine returned no reports."
+                )
+
         except Exception as e:
-            # Capture full trace details in your terminal/cloud logs
-            logger.exception("❌ CRITICAL CRASH inside IntelligenceEngine processing loop!")
-            
+
+            logger.exception(
+                "❌ CRITICAL CRASH inside IntelligenceEngine processing loop!"
+            )
+
+            if st.runtime.exists():
+
+                with st.expander(
+                    "🚨 PIPELINE CRASH: Intelligence Engine Debugger",
+                    expanded=True
+                ):
+
+                    st.error(f"Error: {str(e)}")
+
+                    st.markdown("### Diagnostics")
+
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+                        st.metric(
+                            "Source",
+                            source
+                        )
+
+                        st.metric(
+                            "Severity",
+                            severity
+                        )
+
+                    with col2:
+                        st.metric(
+                            "Score",
+                            f"{score:.2f}"
+                        )
+
+                        st.metric(
+                            "Payload Size",
+                            len(threat_payload)
+                        )
+
+                    st.markdown("### Payload")
+
+                    if hasattr(threat, "model_dump"):
+                        st.json(threat.model_dump(mode="json"))
+                    else:
+                        st.write(threat)    
             # Surface an interactive visual debugger window directly inside your Streamlit App
             if st.runtime.exists():
                 with st.expander("🚨 PIPELINE CRASH: Intelligence Engine Debugger", expanded=True):
