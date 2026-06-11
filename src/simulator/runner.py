@@ -1,6 +1,3 @@
-from datetime import datetime
-
-
 class AttackRunner:
 
     def __init__(self):
@@ -8,8 +5,12 @@ class AttackRunner:
 
     def push(self, events, attack_type):
 
+        if not events:
+            return
+
         with open(self.file, "a") as f:
-
             for e in events:
-
-                f.write(e.model_dump_json() + "\n")
+                try:
+                    f.write(str(e) + "\n")
+                except Exception:
+                    continue
