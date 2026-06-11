@@ -107,14 +107,25 @@ def get_latest_ai_reports(limit=10):
 # MANUAL AI GENERATION
 # =====================================================
 
-def generate_ai_report(source_type="all"):
-
-    analyzer = AIAnalyzer()
-
-    return analyzer.generate_report(
-        source_type=source_type
-    )
-
+def generate_ai_report(wrapped_anomaly) -> str:
+    """
+    Generates a single-event forensic analysis report using the AIAnalyzer.
+    
+    Args:
+        wrapped_anomaly: The Wrap(row) object passed from the threat monitor UI.
+        
+    Returns:
+        str: The Markdown-formatted AI analysis response text.
+    """
+    from src.ai.analyzer import AIAnalyzer  # Ensure correct import path inside your main file
+    
+    try:
+        analyzer = AIAnalyzer()
+        # process the wrapped object and return the raw string response text.
+        return analyzer.analyze_event(wrapped_anomaly)
+        
+    except Exception as e:
+        return f"⚠️ **AI Forensic Generation Failed:** {str(e)}"
 
 # =====================================================
 # DASHBOARD
