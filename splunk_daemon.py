@@ -1,13 +1,5 @@
-"""
-SentinelAI Background Daemon
-
-Flow:
-Splunk -> MCP Store -> Anomaly Engine -> Intelligence Engine
-"""
-
 import time
-import os
-import json
+import asyncio
 from loguru import logger
 
 from src.mcp_tools.auth_tools import AuthTools
@@ -18,8 +10,8 @@ from src.mcp_tools.system_tools import SystemTools
 from src.anomaly.analyzer import AnomalyAnalyzer
 from src.intelligence.engine import IntelligenceEngine
 
+
 POLL_INTERVAL = 10
-SIMULATOR_LOG_PATH = "attack_stream.log"
 
 
 class SplunkDaemon:
@@ -33,157 +25,183 @@ class SplunkDaemon:
         self.anomaly_engine = AnomalyAnalyzer()
         self.intel_engine = IntelligenceEngine()
 
-    def collect_events(self):
+    # =====================================================
+    # PARALLEL EVENT COLLECTION 
+    # =====================================================
+    async def collect_events_async(self):
+        logger.info("⚡ Starting parallel MCP collection")
+
+        loop = asyncio.get_running_loop()
+
+        tasks = [
+            loop.run_in_executor(None, self.auth.get_auth_logs),
+            loop.run_in_executor(None, self.network.get_network_logs),
+            loop.run_in_executor(None, self.security.get_auth_logs),
+            loop.run_in_executor(None, self.system.get_system_logs),
+        ]
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
         events = []
 
-        # 1. NATIVE MCP TOOL COLLECTION PIPELINE
-        try:
-            events.extend(self.auth.get_auth_logs())
-        except Exception as e:
-            logger.error(f"Auth collection failed: {e}")
+        for r in results:
+            if isinstance(r, Exception):
+                logger.error(f"❌ MCP tool failed: {r}")
+                continue
+            if isinstance(r, list):
+                events.extend(r)
 
-        try:
-            events.extend(self.network.get_network_logs())
-        except Exception as e:
-            logger.error(f"Network collection failed: {e}")
+        logger.info(f"📦 Parallel collection complete: {len(events)} events")
 
-        try:
-            events.extend(self.security.get_auth_logs())
-        except Exception as e:
-            logger.error(f"Security collection failed: {e}")
-
-        try:
-            events.extend(self.system.get_system_logs())
-        except Exception as e:
-            logger.error(f"System collection failed: {e}")
-
-        # 2. SUPABASE STORE QUEUE COLLECTION (REPLACES LOCAL FILE STREAM)
+        # Supabase ingestion (still sync, optional optimization later)
         try:
             from src.storage.attack_log_store import AttackLogStore
-            
-            # Fetch all active attack scenarios currently waiting in the cloud table queue
+
             cloud_logs = AttackLogStore.get_all()
 
             if cloud_logs:
-                logger.info(f"Ingested {len(cloud_logs)} raw simulation logs from Supabase.")
                 events.extend(cloud_logs)
 
-                # Isolate the exact record IDs processed during this loop pass
-                processed_ids = [row["id"] for row in cloud_logs if "id" in row]
-                
-                if processed_ids:
-                    # Wipe out exclusively what we read, preserving any entries added mid-cycle
-                    AttackLogStore.delete_batch(processed_ids)
-                    logger.info(f"Successfully flushed {len(processed_ids)} processed simulation records from cloud queue.")
+                ids = [row["id"] for row in cloud_logs if "id" in row]
+                if ids:
+                    AttackLogStore.delete_batch(ids)
 
         except Exception as e:
-            logger.error(f"Error accessing Supabase cloud simulation log store pipeline: {e}")
+            logger.error(f"Supabase error: {e}")
 
         return events
 
-    def run_cycle(self):
-            logger.info("Starting collection cycle")
-            events = self.collect_events()
-            logger.info(f"Collected {len(events)} total raw metrics events")
+    # =====================================================
+    # PARALLEL ANOMALY ANALYSIS 
+    # =====================================================
+    def run_anomaly_parallel(self, grouped):
+        logger.info("⚡ Running parallel anomaly detection")
 
-            grouped = {
-                "auth": [],
-                "network": [],
-                "security": [],
-                "system": []
-            }
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
 
-            # DYNAMIC ROUTING & NESTED PAYLOAD FLATTENING
-            for e in events:
-                if not isinstance(e, dict):
-                    # Fallback to system group if an MCP tool outputs raw status messages/strings
-                    grouped["system"].append(e)
-                    continue
+        tasks = []
 
-                # Lift out inner scenario data dictionary properties to flatten object schema
-                payload = e.get("event", {}) if isinstance(e.get("event"), dict) else {}
-                normalized_event = {**e, **payload}
+        for name, group in grouped.items():
 
-                src = str(normalized_event.get("source", "system")).lower()
-                attack_type = str(normalized_event.get("attack_type", "")).lower()
+            if not group:
+                continue
 
-                if "soc_sim" in src or attack_type != "":
-                    if "brute" in attack_type:
-                        grouped["auth"].append(normalized_event)
-                    elif "ddos" in attack_type or "scan" in attack_type:
-                        grouped["network"].append(normalized_event)
-                    elif "error" in attack_type or "storm" in attack_type:
-                        grouped["system"].append(normalized_event)
-                    else:
-                        grouped["security"].append(normalized_event)
-                else:
-                    if "auth" in src:
-                        grouped["auth"].append(normalized_event)
-                    elif "network" in src:
-                        grouped["network"].append(normalized_event)
-                    elif "security" in src:
-                        grouped["security"].append(normalized_event)
-                    else:
-                        grouped["system"].append(normalized_event)
+            valid = [x for x in group if isinstance(x, dict)]
+            if not valid:
+                continue
 
-            threats = []
+            values = [
+                int(x.get("count", 1)) if isinstance(x, dict) else 1
+                for x in valid
+            ]
 
-            # TIME-SERIES SIGNAL PREPARATION & ANOMALY ANALYSIS RUNNER
-            for name, group in grouped.items():
-                if not group:
-                    continue
+            while len(values) < 10:
+                values.insert(0, 1)
 
-                # 🛡️ CRITICAL FIX: Extract ONLY true dictionary objects for analytical scaling
-                valid_dict_events = [x for x in group if isinstance(x, dict)]
-                current_burst_volume = len(valid_dict_events)
-
-                if current_burst_volume == 0:
-                    logger.warning(f"⚠️ Channel [{name}] skipped: group contains no dictionary logs.")
-                    continue
-
-                # 🛡️ CRITICAL FIX: Scan ONLY the sanitized dict array to avoid string .get() crashes
-                is_simulator_run = any(
-                    "soc_sim" in str(x.get("source", "")).lower() 
-                    for x in valid_dict_events
-                )
-
-                # Construct dynamic historical frames to trigger statistical and ML variance flags
-                if is_simulator_run:
-                    # Creates an obvious volumetric jump sequence passing validation models constraints
-                    values = [2, 1, 3, 2, 1, 2, 3, 1, 2, current_burst_volume]
-                else:
-                    values = [
-                        int(x.get("count", 1)) if isinstance(x, dict) else 1
-                        for x in valid_dict_events
-                    ]
-                    # Ensure validation rule metrics lengths >= 10 count elements
-                    while len(values) < 10:
-                        values.insert(0, 1)
-
-                logger.info(f"📊 Channel [{name}] evaluating series matrix array: {values}")
-
-                # Execute statistical calculations engine loops
-                threat = self.anomaly_engine.analyze_series(
+            tasks.append(
+                loop.run_in_executor(
+                    None,
+                    self.anomaly_engine.analyze_series,
                     name,
                     values,
-                    valid_dict_events  # Drops potential primitive string arrays to keep engines safe
+                    valid
                 )
+            )
 
-                if threat:
-                    threats.append(threat)
+        results = loop.run_until_complete(asyncio.gather(*tasks))
 
-            logger.info(f"Detected {len(threats)} anomalies across telemetry streams")
+        threats = [r for r in results if r]
 
-            # GENERATE STRATEGIC INTELLIGENCE DOSSIERS
-            reports = self.intel_engine.analyze(threats)
-            logger.info(f"Generated {len(reports)} intelligence reports")
+        logger.info(f"🚨 Detected {len(threats)} anomalies")
+
+        return threats
+
+    # =====================================================
+    # MAIN CYCLE
+    # =====================================================
+    def run_cycle(self):
+        logger.info("🔄 Starting collection cycle")
+
+        events = asyncio.run(self.collect_events_async())
+
+        logger.info(f"📊 Collected {len(events)} events")
+
+        grouped = {
+            "auth": [],
+            "network": [],
+            "security": [],
+            "system": []
+        }
+
+        # ================================
+        # FAST GROUPING 
+        # ================================
+        for e in events:
+            if not isinstance(e, dict):
+                grouped["system"].append(e)
+                continue
+
+            payload = e.get("event", {}) if isinstance(e.get("event"), dict) else {}
+            normalized = {**e, **payload}
+
+            src = str(normalized.get("source", "system")).lower()
+            attack_type = str(normalized.get("attack_type", "")).lower()
+
+            if "soc_sim" in src or attack_type:
+                if "brute" in attack_type:
+                    grouped["auth"].append(normalized)
+                elif "ddos" in attack_type or "scan" in attack_type:
+                    grouped["network"].append(normalized)
+                elif "error" in attack_type:
+                    grouped["system"].append(normalized)
+                else:
+                    grouped["security"].append(normalized)
+            else:
+                if "auth" in src:
+                    grouped["auth"].append(normalized)
+                elif "network" in src:
+                    grouped["network"].append(normalized)
+                elif "security" in src:
+                    grouped["security"].append(normalized)
+                else:
+                    grouped["system"].append(normalized)
+
+        # ================================
+        # PARALLEL ANOMALY ENGINE
+        # ================================
+        threats = self.run_anomaly_parallel(grouped)
+
+        # ================================
+        # INTELLIGENCE ENGINE (SYNC)
+        # ================================
+        reports = self.intel_engine.analyze(threats)
+
+        logger.info(f"🧠 Generated {len(reports)} intelligence reports")
+
+        return {
+            "events": len(events),
+            "threats": len(threats),
+            "reports": len(reports)
+        }
+
+    # =====================================================
+    # DAEMON LOOP
+    # =====================================================
     def run(self):
-        logger.info("SentinelAI Daemon Started")
+        logger.info("🚀 SentinelAI Daemon Started")
+
         while True:
             try:
-                self.run_cycle()
+                start = time.time()
+
+                result = self.run_cycle()
+
+                logger.info(f"⏱️ Cycle completed in {time.time() - start:.2f}s")
+                logger.info(f"📊 Summary: {result}")
+
             except Exception as e:
-                logger.exception(f"Daemon runtime anomaly error: {e}")
+                logger.exception(f"Daemon error: {e}")
 
             time.sleep(POLL_INTERVAL)
 
