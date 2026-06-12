@@ -81,6 +81,13 @@ pages = {
             title="SOC Home"
         ),
     ],
+    
+    "⚙️ Splunk Layer": [
+    st.Page(
+        "app_pages/splunk_dashboard.py",
+        title="Splunk Data Dashboard"
+    ),
+],
 
     "📊 Monitoring": [
         st.Page(
@@ -95,6 +102,7 @@ pages = {
             title="Attack Simulator"
         ),
     ],
+
 
     "🧠 Intelligence": [
 
