@@ -9,6 +9,7 @@ from src.mcp_tools.system_tools import SystemTools
 
 from src.anomaly.analyzer import AnomalyAnalyzer
 from src.intelligence.engine import IntelligenceEngine
+from src.alerts.global_alerts import GlobalAlertStore
 
 
 POLL_INTERVAL = 10
@@ -74,6 +75,8 @@ class SplunkDaemon:
     # =====================================================
     # PARALLEL ANOMALY ANALYSIS 
     # =====================================================
+    
+
     def run_anomaly_parallel(self, grouped):
         logger.info("⚡ Running parallel anomaly detection")
 
@@ -81,6 +84,8 @@ class SplunkDaemon:
         asyncio.set_event_loop(loop)
 
         tasks = []
+
+        meta = []
 
         for name, group in grouped.items():
 
@@ -99,6 +104,9 @@ class SplunkDaemon:
             while len(values) < 10:
                 values.insert(0, 1)
 
+            # store metadata for alerting
+            meta.append((name, valid))
+
             tasks.append(
                 loop.run_in_executor(
                     None,
@@ -111,12 +119,34 @@ class SplunkDaemon:
 
         results = loop.run_until_complete(asyncio.gather(*tasks))
 
-        threats = [r for r in results if r]
+        threats = []
+
+        for i, result in enumerate(results):
+            if not result:
+                continue
+
+            threats.append(result)
+
+            # ============================
+            # 🚨 GLOBAL ALERT TRIGGER
+            # ============================
+            try:
+                name, raw_events = meta[i]
+
+                asyncio.run(GlobalAlertStore.push_alert({
+                    "title": f"Anomaly detected in {name}",
+                    "severity": result.get("severity", "HIGH"),
+                    "attack_type": result.get("attack_type", "unknown"),
+                    "summary": result.get("summary", "Suspicious activity detected"),
+                    "source_events": len(raw_events)
+                }))
+
+            except Exception as e:
+                logger.error(f"Alert push failed: {e}")
 
         logger.info(f"🚨 Detected {len(threats)} anomalies")
 
         return threats
-
     # =====================================================
     # MAIN CYCLE
     # =====================================================
