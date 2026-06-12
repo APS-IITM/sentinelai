@@ -1,12 +1,10 @@
 """
-SentinelAI Operations Center
-Optimized Splunk + MCP Observability Dashboard
-(Fast + Minimal + Alerting)
+SentinelAI Splunk Dashboard
+LIVE MODE: Real-time MCP + Daemon Feed + Alerts
 """
 
 import time
 import pandas as pd
-import plotly.express as px
 import streamlit as st
 
 from src.mcp_tools.auth_tools import AuthTools
@@ -14,32 +12,96 @@ from src.mcp_tools.network_tools import NetworkTools
 from src.mcp_tools.security_tools import SecurityTools
 from src.mcp_tools.system_tools import SystemTools
 
+from src.alerts.global_alerts import GlobalAlertStore
+
 
 # ==========================================================
-# CONFIG
+# PAGE CONFIG
 # ==========================================================
 st.set_page_config(
-    page_title="SentinelAI SOC",
+    page_title="SentinelAI Splunk Live Dashboard",
     layout="wide"
 )
 
-st.title("SentinelAI SOC Dashboard")
-st.caption("Fast Splunk + MCP Observability Layer")
+st.title("⚙️ SentinelAI Splunk Live Stream")
+st.caption("Real-time MCP → Splunk → Daemon → Alert Pipeline")
 
 st.divider()
 
 
 # ==========================================================
-# SIDEBAR
+# LIVE CACHE (IN-MEMORY REAL TIME STORE)
 # ==========================================================
-limit = st.sidebar.slider("Limit", 5, 50, 10)
-refresh = st.sidebar.slider("Refresh (sec)", 3, 20, 5)
+class LiveCache:
+    """
+    Lightweight in-memory cache updated by daemon OR MCPStore sync.
+    This is your REAL replacement for simulation.
+    """
 
-run = st.sidebar.button("Refresh Now")
+    _store = {
+        "auth": [],
+        "network": [],
+        "security": [],
+        "system": []
+    }
+
+    _last_update = 0
+
+    @classmethod
+    def push(cls, category: str, data: dict):
+        if category not in cls._store:
+            cls._store[category] = []
+
+        cls._store[category].append(data)
+        cls._last_update = time.time()
+
+    @classmethod
+    def get(cls, category: str):
+        return cls._store.get(category, [])
+
+    @classmethod
+    def get_all(cls):
+        return cls._store
+
+    @classmethod
+    def clear(cls):
+        cls._store = {"auth": [], "network": [], "security": [], "system": []}
 
 
 # ==========================================================
-# TOOL INIT
+# SYNC FROM DAEMON (REAL INTEGRATION HOOK)
+# ==========================================================
+def sync_from_daemon():
+    """
+    REAL FLOW:
+    Daemon → MCPStore (Supabase) → Dashboard Cache
+
+    Replace Supabase fetch if you want pure socket streaming later.
+    """
+
+    try:
+        from src.storage.mcp_store import MCPStore
+
+        # pull latest tool logs (REAL DAEMON OUTPUT)
+        for tool in ["auth", "network", "security", "system"]:
+            records = MCPStore.get(tool)
+
+            if records:
+                for r in records:
+                    LiveCache.push(tool, r)
+
+    except Exception as e:
+        st.warning(f"Cache sync failed: {e}")
+
+
+# ==========================================================
+# AUTO SYNC (FAST LIGHTWEIGHT)
+# ==========================================================
+sync_from_daemon()
+
+
+# ==========================================================
+# TOOL INIT (ONLY IF NEEDED FOR DIRECT QUERY)
 # ==========================================================
 auth = AuthTools()
 network = NetworkTools()
@@ -48,35 +110,43 @@ system = SystemTools()
 
 
 # ==========================================================
-# FAST DATA FETCH (PARALLEL STYLE LOGIC)
+# METRICS (FAST CACHE READ)
 # ==========================================================
-start = time.time()
-
-auth_logs = auth.get_auth_logs(limit=limit)
-network_logs = network.get_network_logs(limit=limit)
-security_logs = security.get_auth_logs(limit=limit)
-system_logs = system.get_system_logs(limit=limit)
-
-latency = round(time.time() - start, 2)
+auth_logs = LiveCache.get("auth")
+network_logs = LiveCache.get("network")
+security_logs = LiveCache.get("security")
+system_logs = LiveCache.get("system")
 
 
-# ==========================================================
-# SIMPLE METRICS
-# ==========================================================
-col1, col2, col3, col4, col5 = st.columns(5)
+col1, col2, col3, col4 = st.columns(4)
 
-col1.metric("Auth", len(auth_logs))
-col2.metric("Network", len(network_logs))
-col3.metric("Security", len(security_logs))
-col4.metric("System", len(system_logs))
-col5.metric("Latency (s)", latency)
+col1.metric("Auth Events", len(auth_logs))
+col2.metric("Network Events", len(network_logs))
+col3.metric("Security Events", len(security_logs))
+col4.metric("System Events", len(system_logs))
 
 st.divider()
 
 
 # ==========================================================
-# DATA FRAME (MINIMAL)
+# ALERT ENGINE (GLOBAL DAEMON ALERTS)
 # ==========================================================
+st.subheader("🚨 Live Alerts")
+
+alerts = GlobalAlertStore.get_latest() if hasattr(GlobalAlertStore, "get_latest") else []
+
+if alerts:
+    for alert in alerts[-5:]:
+        st.error(f"⚠️ {alert.get('message', 'Anomaly detected')}")
+else:
+    st.success("System Stable (No Active Alerts)")
+
+
+# ==========================================================
+# EVENT FLOW GRAPH (MINIMAL FAST LINE CHART)
+# ==========================================================
+st.subheader("📈 Live Event Flow")
+
 df = pd.DataFrame({
     "source": ["auth", "network", "security", "system"],
     "count": [
@@ -87,88 +157,34 @@ df = pd.DataFrame({
     ]
 })
 
-
-# ==========================================================
-# SIMPLE LINE GRAPH (FAST RENDER)
-# ==========================================================
-st.subheader("Event Flow")
-
-fig = px.line(
-    df,
-    x="source",
-    y="count",
-    markers=True
-)
-
-st.plotly_chart(fig, use_container_width=True)
+st.line_chart(df.set_index("source"))
 
 
 # ==========================================================
-# RAW TABLES (LIGHTWEIGHT)
+# LOG TABLES (FAST VIEW)
 # ==========================================================
 st.divider()
 
-st.subheader("Logs")
+tab1, tab2, tab3, tab4 = st.tabs(
+    ["Auth", "Network", "Security", "System"]
+)
 
-tabs = st.tabs(["Auth", "Network", "Security", "System"])
-
-with tabs[0]:
+with tab1:
     st.dataframe(auth_logs, use_container_width=True)
 
-with tabs[1]:
+with tab2:
     st.dataframe(network_logs, use_container_width=True)
 
-with tabs[2]:
+with tab3:
     st.dataframe(security_logs, use_container_width=True)
 
-with tabs[3]:
+with tab4:
     st.dataframe(system_logs, use_container_width=True)
 
 
 # ==========================================================
-# 🚨 ANOMALY ALERT SYSTEM (IMPORTANT)
+# LIVE AUTO REFRESH (FAST LOOP)
 # ==========================================================
-st.divider()
+time.sleep(2)   # low latency refresh
 
-st.subheader("Alerts")
-
-def detect_anomaly(auth_logs, network_logs):
-    """
-    Lightweight rule-based anomaly detection
-    (fast + no ML overhead)
-    """
-
-    alerts = []
-
-    # AUTH anomaly
-    if len(auth_logs) > limit * 2:
-        alerts.append("⚠️ High authentication activity detected")
-
-    # NETWORK anomaly
-    if len(network_logs) > limit * 2:
-        alerts.append("⚠️ Unusual network traffic spike")
-
-    # SECURITY anomaly
-    if len(security_logs) > limit:
-        alerts.append("⚠️ Security event surge detected")
-
-    return alerts
-
-
-alerts = detect_anomaly(auth_logs, network_logs)
-
-if alerts:
-    for a in alerts:
-        st.error(a)
-else:
-    st.success("System normal")
-
-
-# ==========================================================
-# AUTO REFRESH (FAST)
-# ==========================================================
-if run:
-    st.rerun()
-
-time.sleep(refresh)
 st.rerun()
