@@ -81,7 +81,7 @@ pages = {
             title="SOC Home"
         ),
     ],
-    
+
     "⚙️ Splunk Layer": [
     st.Page(
         "app_pages/splunk_dashboard.py",
@@ -121,6 +121,13 @@ pages = {
         st.Page(
             "app_pages/investigation.py",
             title="Investigation Console"
+        ),
+    ],
+
+    "🚨 Alerts": [
+        st.Page(
+            "app_pages/global_alert_panel.py",
+            title="Global Alert Center"
         ),
     ],
 
