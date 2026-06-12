@@ -69,7 +69,7 @@ class LiveCache:
 
 
 # ==========================================================
-# SYNC FROM DAEMON (REAL INTEGRATION HOOK)
+# SYNC FROM DAEMON 
 # ==========================================================
 def sync_from_daemon():
     """
