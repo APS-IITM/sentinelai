@@ -8,7 +8,7 @@ class MCPStore:
 
     TABLE_NAME = "mcp_store"
 
-    # 🔒 Internal class-level lock (no external file needed)
+    # 🔒 Internal class-level lock 
     _write_lock = Lock()
 
     @staticmethod
