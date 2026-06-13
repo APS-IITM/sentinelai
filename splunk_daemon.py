@@ -18,6 +18,9 @@ POLL_INTERVAL = 10
 class SplunkDaemon:
 
     def __init__(self):
+        # ⬇️ ADD THIS LINE RIGHT HERE TO SINK LOGS TO FILE FOR THE DASHBOARD ⬇
+        logger.add("splunk_daemon.log", rotation="10 MB", retention="1 day", format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}")
+
         self.auth = AuthTools()
         self.network = NetworkTools()
         self.security = SecurityTools()
@@ -26,6 +29,9 @@ class SplunkDaemon:
         self.anomaly_engine = AnomalyAnalyzer()
         self.intel_engine = IntelligenceEngine()
 
+    
+
+      
     # =====================================================
     # PARALLEL EVENT COLLECTION 
     # =====================================================
