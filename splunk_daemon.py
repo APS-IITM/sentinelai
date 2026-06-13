@@ -94,12 +94,12 @@ class SplunkDaemon:
         try:
             from src.storage.attack_log_store import AttackLogStore
             cloud_logs = AttackLogStore.get_all()
-
+            logger.info(f"☁️ Retrieved {len(cloud_logs)} cloud logs from Supabase")
             if cloud_logs:
                 events.extend(cloud_logs)
                 ids = [row["id"] for row in cloud_logs if "id" in row]
-                if ids:
-                    AttackLogStore.delete_batch(ids)
+                #if ids:
+                   # AttackLogStore.delete_batch(ids)
         except Exception as e:
             logger.error(f"Supabase error: {e}")
 
@@ -187,18 +187,33 @@ class SplunkDaemon:
                 grouped["system"].append(e)
                 continue
 
-            payload = e.get("event", {}) if isinstance(e.get("event"), dict) else {}
+            # --- HARDENED NORMALIZATION ---
+            # Extract nested fields even if Supabase doesn't use the specific key "event"
+            payload = e.get("event") or e.get("payload") or e.get("metadata") or {}
+            if not isinstance(payload, dict):
+                payload = {}
+            
             normalized = {**e, **payload}
 
-            src = str(normalized.get("source", "system")).lower()
-            attack_type = str(normalized.get("attack_type", "")).lower()
+            # Debug check: Un-comment this line if you need to see exactly what fields are arriving
+            # logger.debug(f"Normalized keys: {list(normalized.keys())}")
 
-            if "soc_sim" in src or attack_type:
-                if "brute" in attack_type:
+            src = str(normalized.get("source", "system")).lower()
+            
+            # Catch attack types regardless of key casing
+            attack_type = str(
+                normalized.get("attack_type") or 
+                normalized.get("attackType") or 
+                normalized.get("incident_type", "")
+            ).lower()
+
+            # --- TARGETED ROUTING ---
+            if "soc_sim" in src or attack_type or "sim" in src:
+                if "brute" in attack_type or "auth" in attack_type:
                     grouped["auth"].append(normalized)
-                elif "ddos" in attack_type or "scan" in attack_type:
+                elif "ddos" in attack_type or "scan" in attack_type or "network" in attack_type:
                     grouped["network"].append(normalized)
-                elif "error" in attack_type:
+                elif "error" in attack_type or "fail" in attack_type:
                     grouped["system"].append(normalized)
                 else:
                     grouped["security"].append(normalized)
@@ -212,10 +227,10 @@ class SplunkDaemon:
                 else:
                     grouped["system"].append(normalized)
 
-        # Await the parallel execution smoothly
-        threats = await self.run_anomaly_parallel(grouped)
+        # Print snapshot of bucket counts to make sure they aren't all landing in system
+        logger.info(f"Bucket Distribution -> Auth: {len(grouped['auth'])} | Net: {len(grouped['network'])} | Sec: {len(grouped['security'])} | Sys: {len(grouped['system'])}")
 
-        # Intelligence Engine Analysis
+        threats = await self.run_anomaly_parallel(grouped)
         reports = self.intel_engine.analyze(threats)
         logger.info(f"🧠 Generated {len(reports)} intelligence reports")
 
@@ -224,7 +239,7 @@ class SplunkDaemon:
             "threats": len(threats),
             "reports": len(reports)
         }
-
+    
     # =====================================================
     # DAEMON LOOP (ASYNC)
     # =====================================================

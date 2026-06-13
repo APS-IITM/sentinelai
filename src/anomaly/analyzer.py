@@ -14,7 +14,6 @@ class AnomalyAnalyzer:
         self.ml = MLDetector()
 
     def analyze_series(self, source: str, values: list, events: list = None):
-
         if not values or len(values) < 10:
             logger.warning(f"⚠️ Skipping stream {source}: insufficient data")
             return None
@@ -24,26 +23,33 @@ class AnomalyAnalyzer:
 
         score = RiskScorer.calculate(stat_score, ml_score)
         
-        # Extract the highest underlying severity from the batch
-        if events and any(isinstance(e, dict) and e.get("severity") for e in events):
-            severity_order = {"LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4}
-            found_severities = [
-                str(e.get("severity")).upper() 
-                for e in events if isinstance(e, dict) and e.get("severity")
-            ]
-            severity = max(found_severities, key=lambda s: severity_order.get(s, 1))
-        else:
-            severity = RiskScorer.severity(score)
-
+        # Fixed logic gate: Trigger if EITHER system flags a risk spike
         if not stat_flag and not ml_flag:
             logger.debug(f"No anomaly detected for {source}")
             return None
 
+        # Extract underlying severity safely 
+        severity = "HIGH"  # Default fallback
+        if events:
+            severity_order = {"LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4}
+            found_severities = []
+            for e in events:
+                if isinstance(e, dict):
+                    # Check both flat and nested variations
+                    sev = e.get("severity") or e.get("event", {}).get("severity")
+                    if sev:
+                        found_severities.append(str(sev).upper())
+            
+            if found_severities:
+                severity = max(found_severities, key=lambda s: severity_order.get(s, 1))
+            else:
+                severity = RiskScorer.severity(score)
+        else:
+            severity = RiskScorer.severity(score)
+
         attack_type = AttackClassifier.classify(values, events=events)
 
-        last_event = None
-        if events and len(events) > 0:
-            last_event = events[-1]
+        last_event = events[-1] if events else None
 
         threat = ThreatEvent(
             source=source,
