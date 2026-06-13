@@ -10,10 +10,6 @@ import threading
 import pandas as pd
 import streamlit as st
 
-from src.mcp_tools.auth_tools import AuthTools
-from src.mcp_tools.network_tools import NetworkTools
-from src.mcp_tools.security_tools import SecurityTools
-from src.mcp_tools.system_tools import SystemTools
 from src.alerts.global_alerts import GlobalAlertStore
 
 # ==========================================================
@@ -21,195 +17,227 @@ from src.alerts.global_alerts import GlobalAlertStore
 # ==========================================================
 st.set_page_config(
     page_title="SentinelAI Splunk Live Dashboard",
-    layout="wide"
+    layout="wide",
 )
 
 st.title("⚙️ SentinelAI Splunk Live Stream")
 st.caption("Real-time MCP → Splunk → Daemon → Alert Pipeline")
 st.divider()
 
-MAX_RAM_BYTES = 10 * 1024 * 1024 
-
-if "terminal_logs" not in st.session_state:
-    st.session_state["terminal_logs"] = []
-if "terminal_bytes" not in st.session_state:
-    st.session_state["terminal_bytes"] = 0
+MAX_RAM_BYTES   = 10 * 1024 * 1024   # 10 MB ceiling
+MAX_RENDER_LINES = 250
 
 # ==========================================================
-# THREAD-SAFE MEMORY MANAGEMENT HOOK
+# SESSION STATE BOOTSTRAP  (run once per browser session)
 # ==========================================================
-def push_terminal_log_to_state(log_line: str):
-    formatted_line = log_line if log_line.endswith("\n") else f"{log_line}\n"
-    line_bytes = sys.getsizeof(formatted_line)
-
-    if st.session_state["terminal_bytes"] + line_bytes > MAX_RAM_BYTES:
-        target_eviction_bytes = MAX_RAM_BYTES * 0.20
-        freed_bytes = 0
-        evict_count = 0
-        
-        for line in st.session_state["terminal_logs"]:
-            freed_bytes += sys.getsizeof(line)
-            evict_count += 1
-            if freed_bytes >= target_eviction_bytes:
-                break
-                
-        st.session_state["terminal_logs"] = st.session_state["terminal_logs"][evict_count:]
-        st.session_state["terminal_bytes"] -= freed_bytes
-        
-        rotation_msg = f"--- [SYSTEM] RAM Limit Reached. Evicted oldest 20% ({evict_count} lines) ---\n"
-        st.session_state["terminal_logs"].insert(0, rotation_msg)
-        st.session_state["terminal_bytes"] += sys.getsizeof(rotation_msg)
-
-    st.session_state["terminal_logs"].append(formatted_line)
-    st.session_state["terminal_bytes"] += line_bytes
+if "terminal_logs"    not in st.session_state:
+    st.session_state["terminal_logs"]    = []
+if "terminal_bytes"   not in st.session_state:
+    st.session_state["terminal_bytes"]   = 0
+if "socket_started"   not in st.session_state:
+    st.session_state["socket_started"]   = False   # FIX 2: single flag, checked once
 
 # ==========================================================
-# BACKGROUND IN-MEMORY SOCKET SERVER
+# THREAD-SAFE MEMORY MANAGEMENT
 # ==========================================================
-def run_log_server_listener():
-    """Stable RAM socket listener for SplunkDaemon log stream"""
+_log_lock = threading.Lock()
 
-    server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_sock.bind(("127.0.0.1", 5555))
-    server_sock.listen(5)
+def push_log(line: str):
+    """Append a log line to session state, evicting oldest 20% when over RAM ceiling."""
+    formatted = line.strip() + "\n"
+    line_bytes = sys.getsizeof(formatted)
 
-    while True:
-        client_conn = None
-        try:
-            client_conn, _ = server_sock.accept()
-            buffer = ""
-
-            while True:
-                data = client_conn.recv(4096)
-                if not data:
+    with _log_lock:
+        # Evict oldest 20% if ceiling reached
+        if st.session_state["terminal_bytes"] + line_bytes > MAX_RAM_BYTES:
+            target = MAX_RAM_BYTES * 0.20
+            freed, count = 0, 0
+            for old_line in st.session_state["terminal_logs"]:
+                freed += sys.getsizeof(old_line)
+                count += 1
+                if freed >= target:
                     break
 
-                # decode safely
+            st.session_state["terminal_logs"]  = st.session_state["terminal_logs"][count:]
+            st.session_state["terminal_bytes"] -= freed
+
+            notice = f"--- [SYSTEM] RAM ceiling reached — evicted {count} oldest lines ---\n"
+            st.session_state["terminal_logs"].insert(0, notice)
+            st.session_state["terminal_bytes"] += sys.getsizeof(notice)
+
+        st.session_state["terminal_logs"].append(formatted)
+        st.session_state["terminal_bytes"] += line_bytes
+
+
+def _socket_reader_thread():
+    """
+    Background thread: connect to SplunkDaemon's log socket as a CLIENT
+    and push every line into session_state.
+    Reconnects automatically if the daemon restarts.
+    """
+    while True:
+        sock = None
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.connect(("127.0.0.1", 5555))          # CLIENT: connect, not bind
+            push_log("[DASHBOARD] Connected to SplunkDaemon log stream")
+
+            buffer = ""
+            while True:
+                data = sock.recv(4096)
+                if not data:
+                    push_log("[DASHBOARD] Daemon closed connection — reconnecting...")
+                    break
+
                 buffer += data.decode("utf-8", errors="ignore")
 
-                # SAFE PARSING (handles partial Loguru bursts)
-                while True:
-                    if "\n" in buffer:
-                        line, buffer = buffer.split("\n", 1)
-                    else:
-                        # handle large single log bursts without newline
-                        if len(buffer) > 500:
-                            line, buffer = buffer[:500], buffer[500:]
-                        else:
-                            break
-
+                while "\n" in buffer:
+                    line, buffer = buffer.split("\n", 1)
                     line = line.strip()
                     if line:
-                        push_terminal_log_to_state(line)
+                        push_log(line)
 
-        except Exception:
-            pass
+                # Flush oversized buffers without a newline (rare Loguru burst)
+                if len(buffer) > 500:
+                    push_log(buffer[:500])
+                    buffer = buffer[500:]
+
+        except ConnectionRefusedError:
+            push_log("[DASHBOARD] Daemon not reachable on :5555 — retrying in 3s...")
+        except Exception as e:
+            push_log(f"[DASHBOARD] Socket error: {e} — retrying in 3s...")
         finally:
-            if client_conn:
+            if sock:
                 try:
-                    client_conn.close()
+                    sock.close()
                 except Exception:
                     pass
 
-# Start background server exactly once within the session state context
-if "server_started" not in st.session_state:
-    st.session_state["server_started"] = True
-    threading.Thread(target=run_log_server_listener, daemon=True).start()
+        time.sleep(3)   # wait before reconnect attempt
 
-# Start background server exactly once within the session state context
-if "server_started" not in st.session_state:
-    st.session_state["server_started"] = True
-    threading.Thread(target=run_log_server_listener, daemon=True).start()
+
+
+if not st.session_state["socket_started"]:
+    st.session_state["socket_started"] = True
+    threading.Thread(target=_socket_reader_thread, daemon=True).start()
+
 
 # ==========================================================
-# METRIC SYNCHRONIZATION
+# METRIC SYNC FROM STORAGE
 # ==========================================================
-class LiveCache:
-    _store = {"auth": [], "network": [], "security": [], "system": []}
-
-    @classmethod
-    def push(cls, category: str, data: dict):
-        if category not in cls._store: cls._store[category] = []
-        cls._store[category].append(data)
-
-    @classmethod
-    def get(cls, category: str):
-        return cls._store.get(category, [])
-
-def sync_from_daemon():
+def fetch_live_counts() -> dict:
+    """Pull current event counts from MCPStore each cycle."""
+    counts = {"auth": 0, "network": 0, "security": 0, "system": 0}
     try:
         from src.storage.mcp_store import MCPStore
-        for tool in ["auth", "network", "security", "system"]:
+        for tool in counts:
             records = MCPStore.get(tool)
-            if records:
-                for r in records: 
-                    LiveCache.push(tool, r)
+            counts[tool] = len(records) if records else 0
     except Exception:
         pass
+    return counts
 
-sync_from_daemon()
+def fetch_live_tables() -> dict:
+    """Pull full records for the tab dataframes."""
+    tables = {"auth": [], "network": [], "security": [], "system": []}
+    try:
+        from src.storage.mcp_store import MCPStore
+        for tool in tables:
+            records = MCPStore.get(tool)
+            if records:
+                tables[tool] = records
+    except Exception:
+        pass
+    return tables
 
-auth_logs = LiveCache.get("auth")
-network_logs = LiveCache.get("network")
-security_logs = LiveCache.get("security")
-system_logs = LiveCache.get("system")
+
+counts = fetch_live_counts()
+tables = fetch_live_tables()
 
 # ==========================================================
-# UI LAYOUT
+# UI — METRICS ROW
 # ==========================================================
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("Auth Events", len(auth_logs))
-col2.metric("Network Events", len(network_logs))
-col3.metric("Security Events", len(security_logs))
-col4.metric("System Events", len(system_logs))
+col1.metric("Auth Events",     counts["auth"])
+col2.metric("Network Events",  counts["network"])
+col3.metric("Security Events", counts["security"])
+col4.metric("System Events",   counts["system"])
 
 st.divider()
 
+# ==========================================================
+# UI — LIVE ALERTS
+# FIX 4: read 'title' key (matches what daemon pushes)
+# ==========================================================
 st.subheader("🚨 Live Alerts")
-alerts = GlobalAlertStore.get_latest() if hasattr(GlobalAlertStore, "get_latest") else []
+
+try:
+    alerts = GlobalAlertStore.get_latest() if hasattr(GlobalAlertStore, "get_latest") else []
+except Exception:
+    alerts = []
+
 if alerts:
     for alert in alerts[-5:]:
-        st.error(f"⚠️ {alert.get('message', 'Anomaly detected')}")
+        severity   = str(alert.get("severity", "MEDIUM")).upper()
+        title      = alert.get("title", "Anomaly detected")          # FIX 4
+        attack     = alert.get("attack_type", "unknown")
+        summary    = alert.get("summary", "")
+        src_events = alert.get("source_events", "?")
+
+        color_fn = st.error if severity in ("HIGH", "CRITICAL") else st.warning
+        color_fn(f"⚠️ [{severity}] {title} — {attack} | {src_events} events | {summary}")
 else:
-    st.success("System Stable (No Active Alerts)")
+    st.success("✅ System Stable — No Active Alerts")
 
+st.divider()
+
+# ==========================================================
+# UI — LIVE EVENT FLOW CHART
+# ==========================================================
 st.subheader("📈 Live Event Flow")
-df = pd.DataFrame({
+chart_df = pd.DataFrame({
     "source": ["auth", "network", "security", "system"],
-    "count": [len(auth_logs), len(network_logs), len(security_logs), len(system_logs)]
+    "count":  [counts["auth"], counts["network"], counts["security"], counts["system"]],
 })
-st.line_chart(df.set_index("source"))
+st.bar_chart(chart_df.set_index("source"))   # bar chart suits discrete buckets better than line
 
 st.divider()
+
+# ==========================================================
+# UI — EVENT TABS
+# ==========================================================
 tab1, tab2, tab3, tab4 = st.tabs(["Auth", "Network", "Security", "System"])
-with tab1: st.dataframe(auth_logs, use_container_width=True)
-with tab2: st.dataframe(network_logs, use_container_width=True)
-with tab3: st.dataframe(security_logs, use_container_width=True)
-with tab4: st.dataframe(system_logs, use_container_width=True)
+with tab1: st.dataframe(tables["auth"],     use_container_width=True)
+with tab2: st.dataframe(tables["network"],  use_container_width=True)
+with tab3: st.dataframe(tables["security"], use_container_width=True)
+with tab4: st.dataframe(tables["system"],   use_container_width=True)
+
+st.divider()
 
 # ==========================================================
-# 💻 LIVE TERMINAL CONSOLE FEED (RAM CEILING TRACKED)
+# UI — LIVE TERMINAL CONSOLE
 # ==========================================================
-st.divider()
 st.subheader("💻 Live Splunk Daemon Console Feed")
 
-current_usage_mb = st.session_state["terminal_bytes"] / (1024 * 1024)
-st.caption(f"**In-Memory Buffer Telemetry:** Using **{current_usage_mb:.4f} MB** / 10.0000 MB Ceiling Cap.")
+used_mb = st.session_state["terminal_bytes"] / (1024 * 1024)
+st.caption(
+    f"In-memory buffer: **{used_mb:.4f} MB** / 10.00 MB ceiling  |  "
+    f"Lines buffered: **{len(st.session_state['terminal_logs'])}**"
+)
 
-MAX_RENDER_LINES = 250
+with _log_lock:
+    logs_snapshot = list(st.session_state["terminal_logs"])
 
-logs = st.session_state["terminal_logs"]
-
-terminal_output = "".join(logs[-MAX_RENDER_LINES:])
-
-
+terminal_output = "".join(logs_snapshot[-MAX_RENDER_LINES:])
 
 if terminal_output.strip():
     st.code(terminal_output, language="bash")
 else:
-    st.info("🔄 Socket initialized. Awaiting next collection loop cycle from SplunkDaemon...")
+    st.info("🔄 Connecting to SplunkDaemon on :5555 — waiting for first log burst...")
 
-# Low latency view loop refresh 
+# ==========================================================
+# FIX 3: Auto-rerun — use st.fragment or a simple sleep+rerun.
+# The 2s sleep is fine but we snapshot state safely above first.
+# ==========================================================
 time.sleep(2)
 st.rerun()
