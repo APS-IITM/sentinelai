@@ -122,7 +122,7 @@ class SplunkDaemon:
     # =====================================================
     
 
-    def run_anomaly_parallel(self, grouped):
+    async def run_anomaly_parallel(self, grouped):
         logger.info("⚡ Running parallel anomaly detection")
 
         loop = asyncio.new_event_loop()
@@ -195,7 +195,7 @@ class SplunkDaemon:
     # =====================================================
     # MAIN CYCLE
     # =====================================================
-    def run_cycle(self):
+    async def run_cycle(self):
         logger.info("🔄 Starting collection cycle")
 
         events = asyncio.run(self.collect_events_async())
