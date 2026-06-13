@@ -1,6 +1,9 @@
 import time
 import asyncio
 from loguru import logger
+import socket
+import threading
+
 
 from src.mcp_tools.auth_tools import AuthTools
 from src.mcp_tools.network_tools import NetworkTools
@@ -12,13 +15,16 @@ from src.intelligence.engine import IntelligenceEngine
 from src.alerts.global_alerts import GlobalAlertStore
 
 
+
+
 POLL_INTERVAL = 10
 
 
 class SplunkDaemon:
 
     def __init__(self):
-        logger.add("splunk_daemon.log", rotation="10 MB", retention="1 day", format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}")
+        # 1. Remove the file logger and replace it with a Socket Streamer
+        self._setup_ram_log_streamer()
 
         self.auth = AuthTools()
         self.network = NetworkTools()
@@ -27,9 +33,43 @@ class SplunkDaemon:
 
         self.anomaly_engine = AnomalyAnalyzer()
         self.intel_engine = IntelligenceEngine()
-
     
+    def _setup_ram_log_streamer(self):
+        """Sets up an in-memory network socket to broadcast logs over RAM."""
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        
+        # Bind to localhost on an arbitrary free port (e.g., 5555)
+        self.server_socket.bind(('127.0.0.1', 5555))
+        self.server_socket.listen(5)
+        self.clients = []
 
+        # Run the socket listener in a background thread so it doesn't block the daemon loop
+        threading.Thread(target=self._accept_connections, daemon=True).start()
+
+        # Tell Loguru to pipe all logs directly to our broadcast function
+        logger.add(self._broadcast_log, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}")
+    
+    def _accept_connections(self):
+        while True:
+            try:
+                client_sock, _ = self.server_socket.accept()
+                self.clients.append(client_sock)
+            except Exception:
+                break
+
+    def _broadcast_log(self, message):
+        """Broadcasts the log string across the volatile RAM socket layer."""
+        log_entry = str(message)
+        # Print to terminal window normally
+        print(log_entry, end="") 
+        
+        # Send to Streamlit over memory loopback
+        for client in list(self.clients):
+            try:
+                client.sendall(log_entry.encode('utf-8'))
+            except Exception:
+                self.clients.remove(client)
       
     # =====================================================
     # PARALLEL EVENT COLLECTION 
