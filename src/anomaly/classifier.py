@@ -1,4 +1,6 @@
+import json
 import numpy as np
+from loguru import logger
 
 class AttackClassifier:
 
@@ -14,7 +16,7 @@ class AttackClassifier:
                 if not isinstance(e, dict):
                     continue
                 
-                # Check for explicit simulator type strings
+                # Check column-level attack type text
                 sim_type = str(e.get("attack_type", "")).upper()
                 if "BRUTE_FORCE" in sim_type:
                     return "BRUTE_FORCE"
@@ -25,15 +27,30 @@ class AttackClassifier:
                 if "ERROR_STORM" in sim_type or "ERROR" in sim_type:
                     return "ERROR_STORM"
                 
-                # Fallback to inspecting internal messages
-                inner_event = e.get("event", {}) if isinstance(e.get("event"), dict) else {}
-                msg = str(inner_event.get("message", "")).upper()
-                subsystem = str(inner_event.get("subsystem", ""))
+                # --- FIX: SAFE STRIP/LOAD ESCAPED JSON STRINGS ---
+                raw_event = e.get("event", {})
+                inner_event = {}
                 
-                if "PORT" in msg or "SCAN" in msg:
-                    return "PORT_SCAN"
-                if "STACK_TRACE" in inner_event or subsystem:
-                    return "ERROR_STORM"
+                if isinstance(raw_event, dict):
+                    inner_event = raw_event
+                elif isinstance(raw_event, str):
+                    try:
+                        inner_event = json.loads(raw_event)
+                    except Exception:
+                        inner_event = {}
+
+                # Fallback to inspecting internal event messages safely
+                if isinstance(inner_event, dict):
+                    msg = str(inner_event.get("message", "")).upper()
+                    subsystem = str(inner_event.get("subsystem", ""))
+                    target = str(inner_event.get("target_endpoint", "")).upper()
+                    
+                    if "PORT" in msg or "SCAN" in msg:
+                        return "PORT_SCAN"
+                    if "LOGIN" in target or "AUTH" in target or "VERIFICATION" in msg:
+                        return "BRUTE_FORCE"
+                    if "STACK_TRACE" in inner_event or subsystem:
+                        return "ERROR_STORM"
 
         # 🎯 STRATEGY 2: Fall back to pure mathematical formulas for regular traffic
         if not values or len(values) < 3:
