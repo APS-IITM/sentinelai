@@ -156,19 +156,19 @@ class SplunkDaemon:
 
             threats.append(result)
 
-            # 🚨 GLOBAL ALERT TRIGGER (Now safely awaited natively)
+            # 🚨 GLOBAL ALERT TRIGGER (Now safely parsing object fields)
             try:
                 name, raw_events = meta[i]
                 await GlobalAlertStore.push_alert({
                     "title": f"Anomaly detected in {name}",
-                    "severity": result.get("severity", "HIGH"),
-                    "attack_type": result.get("attack_type", "unknown"),
-                    "summary": result.get("summary", "Suspicious activity detected"),
+                    "severity": result.severity, # Access property directly
+                    "attack_type": result.attack_type, 
+                    "summary": result.description, 
                     "source_events": len(raw_events)
                 })
             except Exception as e:
                 logger.error(f"Alert push failed: {e}")
-
+                
         logger.info(f"🚨 Detected {len(threats)} anomalies")
         return threats
 

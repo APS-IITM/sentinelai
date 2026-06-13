@@ -39,14 +39,17 @@ class MLDetector:
         if len(values) < 10:
             return False, 0
 
-        # Format input array data for Scikit-Learn structures
-        data = np.array(values, dtype=float).reshape(-1, 1)
+        # If data is completely flat prior to the anomaly, inject micro-noise 
+        # to prevent singular dimensional covariance tracking issues in sklearn
+        raw_data = np.array(values, dtype=float)
+        if np.std(raw_data[:-1]) == 0:
+            # Add negligible noise to variance calculation baseline
+            raw_data[:-1] += np.random.normal(0, 0.01, size=len(raw_data)-1)
+
+        data = raw_data.reshape(-1, 1)
 
         try:
-            # 🧼 Train strictly on historical baseline indexes
             self.model.fit(data[:-1])
-            
-            # 🎯 Predict exclusively on the latest metric event
             prediction = self.model.predict(data[-1:])
             
             is_anomaly = bool(prediction[0] == -1)
