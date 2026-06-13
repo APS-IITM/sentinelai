@@ -48,7 +48,7 @@ class SplunkDaemon:
         threading.Thread(target=self._accept_connections, daemon=True).start()
 
         # Tell Loguru to pipe all logs directly to our broadcast function
-        logger.add(self._broadcast_log, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}")
+        logger.add(self._broadcast_log, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}\n")
     
     def _accept_connections(self):
         while True:
@@ -67,7 +67,7 @@ class SplunkDaemon:
         # Send to Streamlit over memory loopback
         for client in list(self.clients):
             try:
-                client.sendall(log_entry.encode('utf-8'))
+                client.sendall((log_entry + "\n").encode("utf-8"))
             except Exception:
                 self.clients.remove(client)
       
