@@ -4,7 +4,6 @@ from loguru import logger
 import socket
 import threading
 
-
 from src.mcp_tools.auth_tools import AuthTools
 from src.mcp_tools.network_tools import NetworkTools
 from src.mcp_tools.security_tools import SecurityTools
@@ -14,16 +13,13 @@ from src.anomaly.analyzer import AnomalyAnalyzer
 from src.intelligence.engine import IntelligenceEngine
 from src.alerts.global_alerts import GlobalAlertStore
 
-
-
-
 POLL_INTERVAL = 10
-
 
 class SplunkDaemon:
 
     def __init__(self):
-        # 1. Remove the file logger and replace it with a Socket Streamer
+        # 1. Thread-safe lock for clients list
+        self.clients_lock = threading.Lock()
         self._setup_ram_log_streamer()
 
         self.auth = AuthTools()
@@ -39,44 +35,40 @@ class SplunkDaemon:
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         
-        # Bind to localhost on an arbitrary free port (e.g., 5555)
         self.server_socket.bind(('127.0.0.1', 5555))
         self.server_socket.listen(5)
         self.clients = []
 
-        # Run the socket listener in a background thread so it doesn't block the daemon loop
         threading.Thread(target=self._accept_connections, daemon=True).start()
-
-        # Tell Loguru to pipe all logs directly to our broadcast function
         logger.add(self._broadcast_log, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}\n")
     
     def _accept_connections(self):
         while True:
             try:
                 client_sock, _ = self.server_socket.accept()
-                self.clients.append(client_sock)
+                with self.clients_lock:
+                    self.clients.append(client_sock)
             except Exception:
                 break
 
     def _broadcast_log(self, message):
         """Broadcasts the log string across the volatile RAM socket layer."""
         log_entry = str(message)
-        # Print to terminal window normally
         print(log_entry, end="") 
         
-        # Send to Streamlit over memory loopback
-        for client in list(self.clients):
-            try:
-                client.sendall((log_entry + "\n").encode("utf-8"))
-            except Exception:
-                self.clients.remove(client)
+        # Safe iteration with Lock
+        with self.clients_lock:
+            for client in list(self.clients):
+                try:
+                    client.sendall((log_entry + "\n").encode("utf-8"))
+                except Exception:
+                    self.clients.remove(client)
       
     # =====================================================
     # PARALLEL EVENT COLLECTION 
     # =====================================================
     async def collect_events_async(self):
         logger.info("⚡ Starting parallel MCP collection")
-
         loop = asyncio.get_running_loop()
 
         tasks = [
@@ -87,7 +79,6 @@ class SplunkDaemon:
         ]
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
-
         events = []
 
         for r in results:
@@ -99,41 +90,32 @@ class SplunkDaemon:
 
         logger.info(f"📦 Parallel collection complete: {len(events)} events")
 
-        # Supabase ingestion (still sync, optional optimization later)
+        # Supabase ingestion
         try:
             from src.storage.attack_log_store import AttackLogStore
-
             cloud_logs = AttackLogStore.get_all()
 
             if cloud_logs:
                 events.extend(cloud_logs)
-
                 ids = [row["id"] for row in cloud_logs if "id" in row]
                 if ids:
                     AttackLogStore.delete_batch(ids)
-
         except Exception as e:
             logger.error(f"Supabase error: {e}")
 
         return events
 
     # =====================================================
-    # PARALLEL ANOMALY ANALYSIS 
+    # PARALLEL ANOMALY ANALYSIS (MADE ASYNC NATIVE)
     # =====================================================
-    
-
     async def run_anomaly_parallel(self, grouped):
         logger.info("⚡ Running parallel anomaly detection")
-
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        loop = asyncio.get_running_loop()
 
         tasks = []
-
         meta = []
 
         for name, group in grouped.items():
-
             if not group:
                 continue
 
@@ -149,9 +131,9 @@ class SplunkDaemon:
             while len(values) < 10:
                 values.insert(0, 1)
 
-            # store metadata for alerting
             meta.append((name, valid))
 
+            # Dispatch synchronous engine code securely to the executor pool
             tasks.append(
                 loop.run_in_executor(
                     None,
@@ -162,8 +144,10 @@ class SplunkDaemon:
                 )
             )
 
-        results = loop.run_until_complete(asyncio.gather(*tasks))
+        if not tasks:
+            return []
 
+        results = await asyncio.gather(*tasks)
         threats = []
 
         for i, result in enumerate(results):
@@ -172,46 +156,32 @@ class SplunkDaemon:
 
             threats.append(result)
 
-            # ============================
-            # 🚨 GLOBAL ALERT TRIGGER
-            # ============================
+            # 🚨 GLOBAL ALERT TRIGGER (Now safely awaited natively)
             try:
                 name, raw_events = meta[i]
-
-                asyncio.run(GlobalAlertStore.push_alert({
+                await GlobalAlertStore.push_alert({
                     "title": f"Anomaly detected in {name}",
                     "severity": result.get("severity", "HIGH"),
                     "attack_type": result.get("attack_type", "unknown"),
                     "summary": result.get("summary", "Suspicious activity detected"),
                     "source_events": len(raw_events)
-                }))
-
+                })
             except Exception as e:
                 logger.error(f"Alert push failed: {e}")
 
         logger.info(f"🚨 Detected {len(threats)} anomalies")
-
         return threats
+
     # =====================================================
-    # MAIN CYCLE
+    # MAIN CYCLE (ASYNC)
     # =====================================================
     async def run_cycle(self):
         logger.info("🔄 Starting collection cycle")
-
-        events = asyncio.run(self.collect_events_async())
-
+        events = await self.collect_events_async()
         logger.info(f"📊 Collected {len(events)} events")
 
-        grouped = {
-            "auth": [],
-            "network": [],
-            "security": [],
-            "system": []
-        }
+        grouped = {"auth": [], "network": [], "security": [], "system": []}
 
-        # ================================
-        # FAST GROUPING 
-        # ================================
         for e in events:
             if not isinstance(e, dict):
                 grouped["system"].append(e)
@@ -242,16 +212,11 @@ class SplunkDaemon:
                 else:
                     grouped["system"].append(normalized)
 
-        # ================================
-        # PARALLEL ANOMALY ENGINE
-        # ================================
-        threats = self.run_anomaly_parallel(grouped)
+        # Await the parallel execution smoothly
+        threats = await self.run_anomaly_parallel(grouped)
 
-        # ================================
-        # INTELLIGENCE ENGINE (SYNC)
-        # ================================
+        # Intelligence Engine Analysis
         reports = self.intel_engine.analyze(threats)
-
         logger.info(f"🧠 Generated {len(reports)} intelligence reports")
 
         return {
@@ -261,25 +226,23 @@ class SplunkDaemon:
         }
 
     # =====================================================
-    # DAEMON LOOP
+    # DAEMON LOOP (ASYNC)
     # =====================================================
-    def run(self):
+    async def run(self):
         logger.info("🚀 SentinelAI Daemon Started")
 
         while True:
             try:
                 start = time.time()
-
-                result = self.run_cycle()
-
+                result = await self.run_cycle()
                 logger.info(f"⏱️ Cycle completed in {time.time() - start:.2f}s")
                 logger.info(f"📊 Summary: {result}")
-
             except Exception as e:
                 logger.exception(f"Daemon error: {e}")
 
-            time.sleep(POLL_INTERVAL)
+            await asyncio.sleep(POLL_INTERVAL)
 
 
 if __name__ == "__main__":
-    SplunkDaemon().run()
+    # Start the event loop cleanly from the main execution point
+    asyncio.run(SplunkDaemon().run())
