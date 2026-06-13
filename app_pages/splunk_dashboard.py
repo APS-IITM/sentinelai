@@ -26,56 +26,62 @@ st.caption("Real-time MCP → Splunk → Daemon → Alert Pipeline")
 st.divider()
 
 MAX_RAM_BYTES    = 10 * 1024 * 1024
-MAX_RENDER_LINES = 250
+MAX_RENDER_LINES = 20
+
+# ==========================================================
+# MODULE-LEVEL GLOBALS FOR LOG BUFFER
+# These live at the Python process level and survive st.rerun().
+# st.session_state is re-evaluated on every rerun, so background
+# threads writing to it are effectively writing into a black hole.
+# ==========================================================
+_GLOBAL_LOGS: list  = []
+_GLOBAL_BYTES: int  = 0
+_GLOBAL_LOCK        = threading.Lock()   # replaces the old _log_lock
+_SOCKET_STARTED     = False              # plain bool, NOT session state
 
 # ==========================================================
 # SESSION STATE BOOTSTRAP
+# Only chart_history stays in session state — it is only ever
+# written from the main (rerun) thread so there is no race.
 # ==========================================================
-defaults = {
-    "terminal_logs":  [],
-    "terminal_bytes": 0,
-    "socket_started": False,
-    # Rolling history for the line chart (one dict per cycle)
-    "chart_history":  [],
-}
-for k, v in defaults.items():
-    if k not in st.session_state:
-        st.session_state[k] = v
+if "chart_history" not in st.session_state:
+    st.session_state["chart_history"] = []
 
 # ==========================================================
-# THREAD-SAFE LOG PUSH
+# THREAD-SAFE LOG PUSH  (identical logic to your original,
+# but targets module globals instead of session state)
 # ==========================================================
-_log_lock = threading.Lock()
-
-
 def push_log(line: str):
-    """Append a log line to session state, evicting oldest 20% at RAM ceiling."""
+    """Append a log line to the global buffer, evicting oldest 20% at RAM ceiling."""
+    global _GLOBAL_BYTES
+
     formatted  = line.strip() + "\n"
     line_bytes = sys.getsizeof(formatted)
 
-    with _log_lock:
-        if st.session_state["terminal_bytes"] + line_bytes > MAX_RAM_BYTES:
+    with _GLOBAL_LOCK:
+        if _GLOBAL_BYTES + line_bytes > MAX_RAM_BYTES:
             target = MAX_RAM_BYTES * 0.20
             freed, count = 0, 0
-            for old in st.session_state["terminal_logs"]:
+            for old in _GLOBAL_LOGS:
                 freed += sys.getsizeof(old)
                 count += 1
                 if freed >= target:
                     break
 
-            st.session_state["terminal_logs"]  = st.session_state["terminal_logs"][count:]
-            st.session_state["terminal_bytes"] -= freed
+            del _GLOBAL_LOGS[:count]          # in-place delete keeps same list object
+            _GLOBAL_BYTES -= freed
 
             notice = f"--- [SYSTEM] RAM ceiling hit — evicted {count} oldest lines ---\n"
-            st.session_state["terminal_logs"].insert(0, notice)
-            st.session_state["terminal_bytes"] += sys.getsizeof(notice)
+            _GLOBAL_LOGS.insert(0, notice)
+            _GLOBAL_BYTES += sys.getsizeof(notice)
 
-        st.session_state["terminal_logs"].append(formatted)
-        st.session_state["terminal_bytes"] += line_bytes
+        _GLOBAL_LOGS.append(formatted)
+        _GLOBAL_BYTES += line_bytes
 
 
 # ==========================================================
 # SOCKET CLIENT (dashboard connects TO daemon's server)
+# Identical logic to your original — only push_log target changed.
 # ==========================================================
 def _socket_reader_thread():
     """
@@ -121,8 +127,9 @@ def _socket_reader_thread():
         time.sleep(3)
 
 
-if not st.session_state["socket_started"]:
-    st.session_state["socket_started"] = True
+# Start socket thread ONCE per process (module-level bool prevents re-spawning on rerun)
+if not _SOCKET_STARTED:
+    _SOCKET_STARTED = True
     threading.Thread(target=_socket_reader_thread, daemon=True).start()
 
 
@@ -231,17 +238,19 @@ st.divider()
 
 # ==========================================================
 # UI — LIVE TERMINAL CONSOLE
+# Reads from module-level globals (not session state) so logs
+# written by the background thread are always visible.
 # ==========================================================
 st.subheader("💻 Live Splunk Daemon Console Feed")
 
-used_mb = st.session_state["terminal_bytes"] / (1024 * 1024)
+with _GLOBAL_LOCK:
+    logs_snapshot = list(_GLOBAL_LOGS)          # safe copy under lock
+
+used_mb = _GLOBAL_BYTES / (1024 * 1024)
 st.caption(
     f"In-memory buffer: **{used_mb:.4f} MB** / 10.00 MB  |  "
-    f"Lines buffered: **{len(st.session_state['terminal_logs'])}**"
+    f"Lines buffered: **{len(logs_snapshot)}**"
 )
-
-with _log_lock:
-    logs_snapshot = list(st.session_state["terminal_logs"])
 
 terminal_output = "".join(logs_snapshot[-MAX_RENDER_LINES:])
 
@@ -253,5 +262,5 @@ else:
 # ==========================================================
 # AUTO-RERUN every 10s (matches daemon poll interval)
 # ==========================================================
-time.sleep(10)
+time.sleep(2)
 st.rerun()
