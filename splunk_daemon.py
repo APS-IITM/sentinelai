@@ -223,9 +223,9 @@ class SplunkDaemon:
             logger.info(f"☁️ Retrieved {len(cloud_logs)} cloud logs from Supabase")
             if cloud_logs:
                 events.extend(cloud_logs)
-                # ids = [row["id"] for row in cloud_logs if "id" in row]
-                # if ids:
-                #     AttackLogStore.delete_batch(ids)
+                ids = [row["id"] for row in cloud_logs if "id" in row]
+                if ids:
+                    AttackLogStore.delete_batch(ids)
         except Exception as e:
             logger.error(f"Supabase ingestion error: {e}")
 
